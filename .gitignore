@@ -56,7 +56,7 @@ data/processed/
 data/interim/
 !data/sample/.gitkeep
 !data/sample/README.md
-data/
+data/sample/
 
 # Model artifacts
 outputs/
