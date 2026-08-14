@@ -35,7 +35,7 @@ Replace `YOUR_USERNAME` after pushing to GitHub.
 from rsna_knee.utils.paths import default_data_root, is_kaggle_kernel
 
 print(is_kaggle_kernel())  # True
-print(default_data_root())  # /kaggle/input/rsna-knee-abnormality-detection
+print(default_data_root())  # /kaggle/input/competitions/rsna-knee-abnormality-detection
 ```
 
 ## 4. Load config
@@ -72,32 +72,30 @@ Pre-built Kaggle notebook with repo bootstrap included:
 |------|---------|
 | `kaggle/eda/eda_phase0.ipynb` | Full EDA on competition data |
 | `kaggle/eda/kernel-metadata.json` | Settings for `kaggle kernels push` |
-| `scripts/build_kaggle_eda_notebook.py` | Regenerate from `notebooks/02_eda_phase0.ipynb` |
+| `scripts/sync_kaggle_eda.py` | Regenerate + push EDA notebook to Kaggle |
 
-### Push from your machine
+### Sync notebook to Kaggle
 
-1. Push this repo to GitHub (the bootstrap cell clones it on Kaggle).
-2. Edit **both**:
-   - `kaggle/eda/kernel-metadata.json` → set `"id"` to `your-kaggle-username/rsna-knee-eda-phase0`
-   - `kaggle/eda/eda_phase0.ipynb` → replace `YOUR_USERNAME` in the clone URL
-3. Configure the [Kaggle API](https://github.com/Kaggle/kaggle-api) (`~/.kaggle/kaggle.json` or env vars).
-4. Install and push:
+**Source of truth:** `notebooks/02_eda_phase0.ipynb`  
+**Generated copy:** `kaggle/eda/eda_phase0.ipynb` (do not edit by hand)
+
+Settings: `configs/kaggle_eda.yaml` (kernel id, GitHub clone URL)
 
 ```bash
-pip install kaggle
-kaggle kernels push -p kaggle/eda
+python scripts/sync_kaggle_eda.py           # regenerate kaggle/eda/eda_phase0.ipynb
+python scripts/sync_kaggle_eda.py --push    # regenerate + kaggle kernels push
+python scripts/sync_kaggle_eda.py --pull    # download from Kaggle (merge into source manually)
 ```
 
+### Push from your machine (manual)
+
+1. Push this repo to GitHub (the bootstrap cell clones it on Kaggle).
+2. Edit `configs/kaggle_eda.yaml` if needed (`repo_url`, `kernel_id`).
+3. Configure the [Kaggle API](https://github.com/Kaggle/kaggle-api).
+4. Run `python scripts/sync_kaggle_eda.py --push`
 5. Open the notebook on Kaggle → **Save & Run All** (Internet must be enabled).
 
 GPU is not required for EDA (`enable_gpu: false` in metadata).
-
-### Regenerate after editing the local EDA notebook
-
-```bash
-python scripts/build_kaggle_eda_notebook.py
-kaggle kernels push -p kaggle/eda
-```
 
 ## Kernel metadata
 

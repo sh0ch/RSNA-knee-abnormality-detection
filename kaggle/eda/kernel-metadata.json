@@ -1,6 +1,6 @@
 {
   "id": "simonhochwebde/rsna-knee-eda-phase0",
-  "title": "RSNA Knee — EDA Phase 0",
+  "title": "RSNA Knee EDA Phase 0",
   "code_file": "eda_phase0.ipynb",
   "language": "python",
   "kernel_type": "notebook",

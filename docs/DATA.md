@@ -2,11 +2,13 @@
 
 ## Official dataset (Kaggle only)
 
-Mount path in notebooks:
+Mount path in notebooks (auto-detected by `default_data_root()`):
 
 ```
-/kaggle/input/rsna-knee-abnormality-detection/
+/kaggle/input/competitions/rsna-knee-abnormality-detection/
 ```
+
+Older notebooks may still see `/kaggle/input/rsna-knee-abnormality-detection/` when the dataset is attached directly. The package checks both locations.
 
 | File / directory | Description |
 |------------------|-------------|
