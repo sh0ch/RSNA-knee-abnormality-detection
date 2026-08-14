@@ -1,0 +1,17 @@
+{
+  "id": "your-kaggle-username/rsna-knee-train-template",
+  "title": "RSNA Knee — Train Template",
+  "code_file": "kernels/train_template.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": true,
+  "dataset_sources": [
+    "rsna-knee-abnormality-detection"
+  ],
+  "competition_sources": [
+    "rsna-knee-abnormality-detection"
+  ],
+  "kernel_sources": []
+}

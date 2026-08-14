@@ -1,0 +1,28 @@
+# Default configuration for local prototyping
+# Override per-experiment in configs/experiments/ or via CLI
+
+seed: 42
+
+data:
+  root: null  # null = auto-detect (sample locally, /kaggle/input on Kaggle)
+  num_workers: 0
+  volume_shape: [32, 256, 256]  # D, H, W after crop/pad
+
+model:
+  name: baseline
+  num_labels: 12
+  use_report_text: true
+
+training:
+  batch_size: 2
+  learning_rate: 1.0e-4
+  max_epochs: 1
+  val_fold: 0
+  n_folds: 5
+
+inference:
+  tta: false
+
+paths:
+  output_dir: outputs
+  checkpoint_dir: checkpoints

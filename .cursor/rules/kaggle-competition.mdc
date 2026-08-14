@@ -1,0 +1,51 @@
+---
+description: RSNA Knee Abnormality Detection — Kaggle competition constraints and coding standards
+alwaysApply: true
+---
+
+# RSNA Knee Abnormality Detection — Project Rules
+
+## Competition compliance
+
+When writing or reviewing code for this repo, enforce Kaggle/RSNA rules:
+
+1. **No external training data** unless the official rules explicitly permit it. Do not scrape, purchase, or use third-party knee MRI datasets.
+2. **No test-set labeling** — never use human annotations on test studies.
+3. **Reports are training-only** — inference code must work without `Report`; do not leak report features into the test pipeline.
+4. **Submissions on Kaggle** — final scoring runs in Kaggle Notebooks; keep training/inference reproducible there.
+5. **No private sharing** outside the registered team (code, predictions, embeddings).
+6. **Document pre-trained weights** — if using public checkpoints (e.g. ImageNet, RadImageNet, clinical LLMs), note license and rule compliance.
+7. **Winner open-source requirement** — structure code for public release if placing on the leaderboard.
+
+## Architecture
+
+- Reusable logic lives in `src/rsna_knee/`, not in notebooks.
+- Use `rsna_knee.utils.paths` for data paths — never hardcode `/kaggle/input/...` outside path utilities.
+- Config via YAML in `configs/`; avoid magic numbers in notebook cells.
+- Multimodal design: image branch + optional text branch (train only) → study-level 12-label head.
+
+## DICOM handling
+
+- Use `pydicom` for all DICOM reads; support varied transfer syntaxes.
+- Apply `RescaleSlope` / `RescaleIntercept` before normalization.
+- Sort slices by `InstanceNumber` or `ImagePositionPatient`.
+- Handle variable series length (20–45 typical slices) with padding, sampling, or 3D models.
+
+## Local vs Kaggle
+
+- **Local:** `data/sample/` synthetic data only — do not download full competition data.
+- **Kaggle:** full data at `/kaggle/input/rsna-knee-abnormality-detection`.
+- Branch on `is_kaggle_kernel()` when environment-specific behavior is needed.
+
+## Code quality
+
+- Python 3.10+, type hints on public functions.
+- Match existing module layout; minimal diffs.
+- Evaluation metric: macro ROC-AUC via `rsna_knee.training.macro_roc_auc`.
+- Target columns defined once in `rsna_knee.constants.TARGET_LABELS`.
+
+## What not to commit
+
+- Competition DICOM data, reports, or derived embeddings from full data.
+- API keys (`kaggle.json`, `.env`).
+- Large model checkpoints (use Kaggle output or Git LFS with care).

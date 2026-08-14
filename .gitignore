@@ -1,0 +1,79 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Environment secrets
+.env
+.env.local
+kaggle.json
+
+# Competition data (never commit — use Kaggle kernels for full dataset)
+data/raw/
+data/processed/
+data/interim/
+!data/sample/.gitkeep
+!data/sample/README.md
+
+# Model artifacts
+outputs/
+checkpoints/
+weights/
+*.pt
+*.pth
+*.ckpt
+*.onnx
+wandb/
+mlruns/
+lightning_logs/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Kaggle kernel outputs
+kaggle/working/
+kaggle/output/
