@@ -29,7 +29,7 @@ def is_kaggle_notebook() -> bool:
 
 def project_root() -> Path:
     """Repository root (parent of src/)."""
-    return Path(__file__).resolve().parents[2]
+    return Path(__file__).resolve().parents[3]
 
 
 def default_data_root() -> Path:

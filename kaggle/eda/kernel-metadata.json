@@ -1,0 +1,15 @@
+{
+  "id": "simonhochwebde/rsna-knee-eda-phase0",
+  "title": "RSNA Knee — EDA Phase 0",
+  "code_file": "eda_phase0.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": false,
+  "enable_internet": true,
+  "dataset_sources": [],
+  "competition_sources": [
+    "rsna-knee-abnormality-detection"
+  ],
+  "kernel_sources": []
+}

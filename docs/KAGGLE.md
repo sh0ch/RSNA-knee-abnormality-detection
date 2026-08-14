@@ -64,6 +64,41 @@ After editing code locally:
 
 Template notebook: `kaggle/kernels/train_template.ipynb`
 
+## EDA notebook (Phase 0)
+
+Pre-built Kaggle notebook with repo bootstrap included:
+
+| File | Purpose |
+|------|---------|
+| `kaggle/eda/eda_phase0.ipynb` | Full EDA on competition data |
+| `kaggle/eda/kernel-metadata.json` | Settings for `kaggle kernels push` |
+| `scripts/build_kaggle_eda_notebook.py` | Regenerate from `notebooks/02_eda_phase0.ipynb` |
+
+### Push from your machine
+
+1. Push this repo to GitHub (the bootstrap cell clones it on Kaggle).
+2. Edit **both**:
+   - `kaggle/eda/kernel-metadata.json` → set `"id"` to `your-kaggle-username/rsna-knee-eda-phase0`
+   - `kaggle/eda/eda_phase0.ipynb` → replace `YOUR_USERNAME` in the clone URL
+3. Configure the [Kaggle API](https://github.com/Kaggle/kaggle-api) (`~/.kaggle/kaggle.json` or env vars).
+4. Install and push:
+
+```bash
+pip install kaggle
+kaggle kernels push -p kaggle/eda
+```
+
+5. Open the notebook on Kaggle → **Save & Run All** (Internet must be enabled).
+
+GPU is not required for EDA (`enable_gpu: false` in metadata).
+
+### Regenerate after editing the local EDA notebook
+
+```bash
+python scripts/build_kaggle_eda_notebook.py
+kaggle kernels push -p kaggle/eda
+```
+
 ## Kernel metadata
 
-`kaggle/kernel-metadata.json` documents suggested settings for the Kaggle CLI (`kaggle kernels push`).
+`kaggle/kernel-metadata.json` documents suggested settings for the training template (`kaggle kernels push -p kaggle` after pointing metadata at the train kernel). For EDA, use `kaggle/eda/kernel-metadata.json` instead.
