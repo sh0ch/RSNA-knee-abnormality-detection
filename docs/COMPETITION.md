@@ -11,20 +11,22 @@ Predict the per-study probability of **12 knee abnormalities** from multimodal i
 
 ## Targets (12 labels)
 
-| Column | Finding |
-|--------|---------|
-| `acl_tear` | ACL Tear |
-| `mcl_tear` | MCL Tear |
-| `medial_meniscus_injury` | Medial Meniscus Injury |
-| `lateral_meniscus_injury` | Lateral Meniscus Injury |
-| `medial_osteoarthritis` | Medial Osteoarthritis |
-| `lateral_osteoarthritis` | Lateral Osteoarthritis |
-| `patellofemoral_osteoarthritis` | Patellofemoral Osteoarthritis |
-| `joint_effusion` | Joint Effusion |
-| `synovitis` | Synovitis |
-| `bakers_cyst` | Baker's Cyst |
-| `bone_contusion` | Bone Contusion |
-| `fracture` | Fracture |
+Kaggle `train.csv` uses short headers (`ACL`, `MCL`, `Medial Meniscus`, …). This repo normalizes them to snake_case constants in `rsna_knee.constants.TARGET_LABELS` via `rsna_knee.data.schema`.
+
+| Canonical (code) | Kaggle CSV | Finding |
+|------------------|------------|---------|
+| `acl_tear` | ACL | ACL Tear |
+| `mcl_tear` | MCL | MCL Tear |
+| `medial_meniscus_injury` | Medial Meniscus | Medial Meniscus Injury |
+| `lateral_meniscus_injury` | Lateral Meniscus | Lateral Meniscus Injury |
+| `medial_osteoarthritis` | Medial OA | Medial Osteoarthritis |
+| `lateral_osteoarthritis` | Lateral OA | Lateral Osteoarthritis |
+| `patellofemoral_osteoarthritis` | PF OA | Patellofemoral Osteoarthritis |
+| `joint_effusion` | Effusion | Joint Effusion |
+| `synovitis` | Synovitis | Synovitis |
+| `bakers_cyst` | Baker's | Baker's Cyst |
+| `bone_contusion` | Contusion | Bone Contusion |
+| `fracture` | Fracture | Fracture |
 
 ## Evaluation
 

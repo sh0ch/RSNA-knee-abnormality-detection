@@ -5,7 +5,7 @@ from __future__ import annotations
 # Official competition slug on Kaggle
 COMPETITION_SLUG = "rsna-knee-abnormality-detection"
 
-# Twelve multilabel targets (order matches train.csv / sample_submission.csv)
+# Canonical label names used in code, metrics, and models (snake_case)
 TARGET_LABELS: list[str] = [
     "acl_tear",
     "mcl_tear",
@@ -20,6 +20,27 @@ TARGET_LABELS: list[str] = [
     "bone_contusion",
     "fracture",
 ]
+
+# Label columns as they appear in Kaggle train.csv / sample_submission.csv
+KAGGLE_LABEL_COLUMNS: list[str] = [
+    "ACL",
+    "MCL",
+    "Medial Meniscus",
+    "Lateral Meniscus",
+    "Medial OA",
+    "Lateral OA",
+    "PF OA",
+    "Effusion",
+    "Synovitis",
+    "Baker's",
+    "Contusion",
+    "Fracture",
+]
+
+# Canonical name -> Kaggle submission column
+SUBMISSION_LABEL_COLUMNS: dict[str, str] = dict(
+    zip(TARGET_LABELS, KAGGLE_LABEL_COLUMNS, strict=True)
+)
 
 # Human-readable names for logging and reports
 TARGET_DISPLAY_NAMES: dict[str, str] = {
@@ -37,12 +58,14 @@ TARGET_DISPLAY_NAMES: dict[str, str] = {
     "fracture": "Fracture",
 }
 
-# CSV column names
+# CSV column names (canonical after normalization)
 STUDY_ID_COL = "StudyInstanceUID"
 SERIES_ID_COL = "SeriesInstanceUID"
 REPORT_COL = "Report"
 PATIENT_SEX_COL = "PatientSex"
-FLUID_COL = "FluidSensitiveSeries"
+FLUID_COL = "fluid_sensitive"
+FAT_SUPPRESSION_COL = "fat_suppression"
+ANATOMICAL_PLANE_COL = "anatomical_plane"
 
 # DICOM layout: {series_root}/{StudyInstanceUID}/{SeriesInstanceUID}/*.dcm
 TRAIN_SERIES_DIR = "train_series"

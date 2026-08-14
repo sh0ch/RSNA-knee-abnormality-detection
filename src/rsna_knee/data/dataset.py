@@ -15,7 +15,8 @@ from rsna_knee.constants import (
     TARGET_LABELS,
 )
 from rsna_knee.data.dicom_io import load_series_volume, normalize_volume
-from rsna_knee.utils.paths import default_data_root, series_dir, train_csv, train_series_csv
+from rsna_knee.data.schema import load_train_series_table, load_train_table
+from rsna_knee.utils.paths import default_data_root, series_dir
 
 
 class StudyIndex:
@@ -23,8 +24,8 @@ class StudyIndex:
 
     def __init__(self, data_root: Path | None = None) -> None:
         self.data_root = data_root or default_data_root()
-        self.studies = pd.read_csv(train_csv(self.data_root))
-        self.series = pd.read_csv(train_series_csv(self.data_root))
+        self.studies = load_train_table(self.data_root)
+        self.series = load_train_series_table(self.data_root)
         self._validate()
 
     def _validate(self) -> None:

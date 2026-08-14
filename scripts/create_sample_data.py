@@ -161,7 +161,26 @@ def create_sample_dataset(
     pd.DataFrame(test_series_rows).to_csv(output_dir / TEST_SERIES_CSV, index=False)
 
     submission = pd.DataFrame(
-        {STUDY_ID_COL: [r[STUDY_ID_COL] for r in test_rows], **{l: 0.5 for l in TARGET_LABELS}}
+        {
+            STUDY_ID_COL: [r[STUDY_ID_COL] for r in test_rows],
+            **dict.fromkeys(
+                [
+                    "ACL",
+                    "MCL",
+                    "Medial Meniscus",
+                    "Lateral Meniscus",
+                    "Medial OA",
+                    "Lateral OA",
+                    "PF OA",
+                    "Effusion",
+                    "Synovitis",
+                    "Baker's",
+                    "Contusion",
+                    "Fracture",
+                ],
+                0.5,
+            ),
+        }
     )
     submission.to_csv(output_dir / SAMPLE_SUBMISSION_CSV, index=False)
 
