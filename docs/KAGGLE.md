@@ -72,6 +72,7 @@ Pre-built Kaggle notebook with repo bootstrap included:
 |------|---------|
 | `kaggle/eda/eda_phase0.ipynb` | Full EDA on competition data |
 | `kaggle/eda/kernel-metadata.json` | Settings for `kaggle kernels push` |
+| `scripts/build_eda_notebook.py` | Regenerate clean `notebooks/02_eda_phase0.ipynb` (no outputs) |
 | `scripts/sync_kaggle_eda.py` | Regenerate + push EDA notebook to Kaggle |
 
 ### Sync notebook to Kaggle

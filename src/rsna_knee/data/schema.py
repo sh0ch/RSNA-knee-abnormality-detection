@@ -17,6 +17,7 @@ from rsna_knee.constants import (
     SERIES_ID_COL,
     STUDY_ID_COL,
     SUBMISSION_LABEL_COLUMNS,
+    TARGET_DISPLAY_NAMES,
     TARGET_LABELS,
     TEST_CSV,
     TEST_SERIES_CSV,
@@ -55,8 +56,43 @@ def _rename_columns(df: pd.DataFrame, aliases: dict[str, str]) -> pd.DataFrame:
     return df.rename(columns=rename)
 
 
+def read_competition_csv(path: Path | str) -> pd.DataFrame:
+    """Read a competition CSV (handles multiline quoted Report fields)."""
+    return pd.read_csv(path, low_memory=False)
+
+
+def labels_present_mask(df: pd.DataFrame) -> pd.Series:
+    """True for studies with at least one non-null explicit label."""
+    return df[TARGET_LABELS].notna().any(axis=1)
+
+
+def label_coverage(df: pd.DataFrame) -> pd.DataFrame:
+    """Per-label counts and positive rate among labeled studies only."""
+    n_studies = len(df)
+    rows: list[dict[str, object]] = []
+    for label in TARGET_LABELS:
+        labeled = df[label].notna()
+        n_labeled = int(labeled.sum())
+        positives = int(df.loc[labeled, label].sum()) if n_labeled else 0
+        rows.append(
+            {
+                "label": label,
+                "display_name": TARGET_DISPLAY_NAMES[label],
+                "labeled_studies": n_labeled,
+                "labeled_pct": 100.0 * n_labeled / n_studies if n_studies else 0.0,
+                "positives": positives,
+                "positive_rate": positives / n_labeled if n_labeled else float("nan"),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
 def normalize_train_df(df: pd.DataFrame) -> pd.DataFrame:
-    """Map Kaggle train.csv headers to canonical TARGET_LABELS columns."""
+    """
+    Map Kaggle train.csv headers to canonical TARGET_LABELS columns.
+
+    NaN labels are expected for report-only studies (see docs/PROJECT_LOG.md).
+    """
     out = _rename_columns(df, _LABEL_ALIASES)
     missing = [label for label in TARGET_LABELS if label not in out.columns]
     if missing:
@@ -105,20 +141,20 @@ def predictions_to_submission(
 
 
 def load_train_table(data_root: Path | str | None = None) -> pd.DataFrame:
-    return normalize_train_df(pd.read_csv(train_csv(data_root)))
+    return normalize_train_df(read_competition_csv(train_csv(data_root)))
 
 
 def load_train_series_table(data_root: Path | str | None = None) -> pd.DataFrame:
-    return normalize_series_df(pd.read_csv(train_series_csv(data_root)))
+    return normalize_series_df(read_competition_csv(train_series_csv(data_root)))
 
 
 def load_test_table(data_root: Path | str | None = None) -> pd.DataFrame:
-    return pd.read_csv(test_csv(data_root))
+    return read_competition_csv(test_csv(data_root))
 
 
 def load_test_series_table(data_root: Path | str | None = None) -> pd.DataFrame:
-    return normalize_series_df(pd.read_csv(test_series_csv(data_root)))
+    return normalize_series_df(read_competition_csv(test_series_csv(data_root)))
 
 
 def load_sample_submission(data_root: Path | str | None = None) -> pd.DataFrame:
-    return pd.read_csv(sample_submission_csv(data_root))
+    return read_competition_csv(sample_submission_csv(data_root))

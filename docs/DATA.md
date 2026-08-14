@@ -12,7 +12,7 @@ Older notebooks may still see `/kaggle/input/rsna-knee-abnormality-detection/` w
 
 | File / directory | Description |
 |------------------|-------------|
-| `train.csv` | One row per study: `StudyInstanceUID`, `Report`, 12 label columns (`ACL`, `MCL`, …) |
+| `train.csv` | One row per study: `StudyInstanceUID`, `Report`, 12 label columns. **Only ~1.3% of studies (58 / 4,407) have explicit 0/1 labels**; the rest are report-only (NaN). See [PROJECT_LOG.md](PROJECT_LOG.md). |
 | `train_series.csv` | One row per MRI series; `Fluid_Sensitive`, `Fat_Suppression`, `Anatomical_Plane` |
 | `train_series/` | DICOM slices: `train_series/{StudyInstanceUID}/{SeriesInstanceUID}/*.dcm` |
 | `test.csv` | Study IDs for inference (no `Report` during scoring) |

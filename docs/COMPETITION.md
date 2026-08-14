@@ -32,6 +32,10 @@ Kaggle `train.csv` uses short headers (`ACL`, `MCL`, `Medial Meniscus`, …). Th
 
 **Macro ROC-AUC** averaged across all 12 abnormalities.
 
+## Training labels
+
+Only a **subset** of training studies include explicit 0/1 labels; the majority are report-only (NaN labels). Verified counts and modeling implications: **[PROJECT_LOG.md](PROJECT_LOG.md)**.
+
 ## Key dates (2026)
 
 | Milestone | Date |

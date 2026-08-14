@@ -10,7 +10,13 @@ from rsna_knee.constants import (
     KAGGLE_LABEL_COLUMNS,
     TARGET_LABELS,
 )
-from rsna_knee.data.schema import normalize_series_df, normalize_train_df, predictions_to_submission
+from rsna_knee.data.schema import (
+    label_coverage,
+    labels_present_mask,
+    normalize_series_df,
+    normalize_train_df,
+    predictions_to_submission,
+)
 
 
 def _kaggle_train_row() -> pd.DataFrame:
@@ -57,6 +63,15 @@ def test_normalize_series_df_kaggle_columns() -> None:
     assert out[FLUID_COL].iloc[0] == 1
     assert out["fat_suppression"].iloc[0] == 0
     assert out["anatomical_plane"].iloc[0] == "Sagittal"
+
+
+def test_label_coverage_partial_labels() -> None:
+    raw = _kaggle_train_row()
+    unlabeled = raw.assign(**dict.fromkeys(KAGGLE_LABEL_COLUMNS, float("nan")))
+    out = normalize_train_df(pd.concat([raw, unlabeled], ignore_index=True))
+    cov = label_coverage(out)
+    assert cov.loc[cov["label"] == "acl_tear", "labeled_studies"].iloc[0] == 1
+    assert labels_present_mask(out).sum() == 1
 
 
 def test_predictions_to_submission_uses_kaggle_headers() -> None:

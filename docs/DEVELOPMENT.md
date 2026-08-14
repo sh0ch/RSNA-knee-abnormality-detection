@@ -5,6 +5,7 @@
 - **Develop locally** on synthetic/sample data — fast iteration, no multi-TB downloads.
 - **Train and submit on Kaggle** — full dataset, GPU, and official scoring environment.
 - **Keep logic in `src/rsna_knee/`** — notebooks stay thin; reusable code lives in the package.
+- **Record learnings in [PROJECT_LOG.md](PROJECT_LOG.md)** — confirmed numbers and decisions, not notebook outputs.
 
 ## Setup
 
