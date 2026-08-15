@@ -6,19 +6,22 @@ seed: 42
 data:
   root: null  # null = auto-detect (sample locally, /kaggle/input on Kaggle)
   num_workers: 0
-  volume_shape: [32, 256, 256]  # D, H, W after crop/pad
+  volume_shape: [16, 256, 256]  # D, H, W after resample (per series)
+  max_series: 3
 
 model:
-  name: baseline
+  name: convnext_tiny_mil
   num_labels: 12
-  use_report_text: true
+  use_report_text: false
+  pretrained_filename: convnext_tiny_imagenet.pth
 
 training:
   batch_size: 2
   learning_rate: 1.0e-4
-  max_epochs: 1
+  max_epochs: 1  # smoke; use configs/kaggle.yaml for real runs
   val_fold: 0
   n_folds: 5
+  mixup_alpha: 0.4
 
 inference:
   tta: false

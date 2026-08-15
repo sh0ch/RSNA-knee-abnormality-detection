@@ -5,8 +5,8 @@ Living notes from EDA, experiments, and competition learning.
 
 | Phase | Status | Doc / artifact |
 |-------|--------|----------------|
-| 0 — EDA | In progress (2026-08-15) | `notebooks/02_eda_phase0.ipynb` |
-| 1 — Image baseline | Not started | — |
+| 0 — EDA | Done (2026-08-15) | `notebooks/02_eda_phase0.ipynb` |
+| 1 — Image baseline | In progress | `notebooks/03_phase1_image_baseline.ipynb` |
 | 2 — Reports / semi-supervised | Not started | — |
 
 ---
@@ -88,7 +88,7 @@ Slice count, resolution, and orientation vary by site — full distribution stil
 | Primary supervised set | 58 labeled studies | Only ground truth available |
 | Loss | BCE with **NaN mask** | Do not treat missing labels as 0 |
 | Series selection | Fluid-sensitive first | Competition + EDA convention |
-| Volume shape (start) | `[32, 256, 256]` | See `configs/default.yaml` |
+| Volume shape (start) | `[16, 256, 256]` per series | 2.5D stacks; see `configs/default.yaml` |
 | DICOM slice order | Sort by `InstanceNumber` | Filename order is not slice order |
 | Text at inference | **No** | Rules / test pipeline |
 | CV | Study-level k-fold on labeled set | n=58 → high score variance expected |
@@ -99,6 +99,37 @@ Slice count, resolution, and orientation vary by site — full distribution stil
 - [ ] Train vs test shift in series count, planes, sites.
 - [ ] Report length / language distribution.
 - [ ] Best strategy for 4,349 report-only studies (keyword rules vs clinical LLM vs weak supervision).
+
+---
+
+## Phase 1 — Image baseline (2026-08-15)
+
+### What we built
+
+- **2.5D ConvNeXt-Tiny** + gated attention MIL (`rsna_knee.models.mil_2p5d`)
+- `KneeStudyDataset`: labeled-only, fluid-sensitive series (up to 3 planes), InstanceNumber sort, cached volumes
+- Masked BCE + pos_weight, study-level 5-fold, mixup + MRI augs, fold ensemble + TTA
+- **Offline Kaggle path:** `scripts/sync_kaggle_train.py` vendors `src/rsna_knee` into the notebook; internet OFF; ImageNet weights from attached Dataset (`scripts/export_pretrained_weights.py`)
+
+### Artifacts
+
+| Path | Role |
+|------|------|
+| `notebooks/03_phase1_image_baseline.ipynb` | Source notebook |
+| `kaggle/train/train.ipynb` | Generated submit kernel |
+| `configs/kaggle.yaml` / `configs/kaggle_train.yaml` | Train + kernel metadata |
+
+### Pretrained weights
+
+- Source: torchvision `ConvNeXt_Tiny_Weights.IMAGENET1K_V1`
+- File: `convnext_tiny_imagenet.pth` (local `data/pretrained/`, gitignored)
+- License: BSD-style via torchvision — allowed as documented public checkpoint
+
+### Next
+
+- Export weights, create Kaggle Dataset, push kernel, run GPU train + submit
+- Record OOF / LB macro ROC-AUC here after first Kaggle run
+- Then Phase 2: report-derived labels for the 4,349 unlabeled studies
 
 ---
 
@@ -128,3 +159,4 @@ Slice count, resolution, and orientation vary by site — full distribution stil
 |------|--------|
 | 2026-08-15 | Phase 0: partial labels (58/4407), schema mapping, paths, DICOM spot-check |
 | 2026-08-15 | Kaggle v7: test counts (3/15), 512×512 MR, **filename ≠ slice order** — sort by InstanceNumber |
+| 2026-08-15 | Phase 1 scaffold: ConvNeXt-Tiny MIL notebook, offline vendor sync, weight export |

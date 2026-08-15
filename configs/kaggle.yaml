@@ -1,23 +1,27 @@
 # Kaggle kernel overrides — mount competition data automatically
+# Internet must be OFF for submission; attach pretrained weights dataset.
 
 seed: 42
 
 data:
-  root: /kaggle/input/rsna-knee-abnormality-detection
+  root: null  # resolved by default_data_root() on Kaggle
   num_workers: 2
-  volume_shape: [48, 384, 384]
+  volume_shape: [16, 256, 256]
+  max_series: 3
 
 model:
-  name: baseline
+  name: convnext_tiny_mil
   num_labels: 12
-  use_report_text: true
+  use_report_text: false
+  pretrained_filename: convnext_tiny_imagenet.pth
 
 training:
-  batch_size: 4
+  batch_size: 2
   learning_rate: 1.0e-4
-  max_epochs: 10
+  max_epochs: 8
   val_fold: 0
   n_folds: 5
+  mixup_alpha: 0.4
 
 inference:
   tta: true

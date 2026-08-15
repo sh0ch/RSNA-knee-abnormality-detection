@@ -28,10 +28,11 @@ Local dev ──push──▶ GitHub ──clone──▶ Kaggle Notebook ──
 ## Repository structure
 
 ```
-├── src/rsna_knee/       # Core package (DICOM I/O, datasets, metrics)
+├── src/rsna_knee/       # Core package (DICOM I/O, datasets, metrics, models)
 ├── configs/             # default.yaml (local) · kaggle.yaml (notebook)
-├── scripts/             # create_sample_data.py · sync_kaggle_eda.py
-├── kaggle/eda/          # Generated EDA kernel for Kaggle
+├── scripts/             # sample data · EDA/train Kaggle sync · weight export
+├── kaggle/eda/          # Generated EDA kernel
+├── kaggle/train/        # Generated Phase 1 train/submit kernel (internet OFF)
 ├── notebooks/           # Local Jupyter experiments
 ├── tests/               # pytest suite
 └── docs/                # Documentation + project log
@@ -50,6 +51,12 @@ Local dev ──push──▶ GitHub ──clone──▶ Kaggle Notebook ──
 ## Key finding (Phase 0)
 
 Only **58 / 4,407** training studies have explicit 0/1 labels; the rest are report-only. See [docs/PROJECT_LOG.md](docs/PROJECT_LOG.md).
+
+## Phase 1 notebook
+
+- Source: `notebooks/03_phase1_image_baseline.ipynb`
+- Kaggle (internet OFF): `python scripts/sync_kaggle_train.py --push`
+- Weights: `python scripts/export_pretrained_weights.py` → upload Dataset → attach to kernel
 
 ## Targets (12 multilabel)
 

@@ -20,7 +20,7 @@ def macro_roc_auc(
     """
     labels = labels or TARGET_LABELS
     scores: list[float] = []
-    for i, name in enumerate(labels):
+    for i, _name in enumerate(labels):
         yt = y_true[:, i]
         if len(np.unique(yt)) < 2:
             continue

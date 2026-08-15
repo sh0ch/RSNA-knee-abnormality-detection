@@ -1,0 +1,17 @@
+# Settings for scripts/sync_kaggle_train.py (Phase 1 train notebook)
+#
+# Edit notebooks/03_phase1_image_baseline.ipynb for analysis / train cells.
+# Run: python scripts/sync_kaggle_train.py --push
+#
+# Internet is DISABLED on the kernel (required for competition submission).
+# Attach a Kaggle Dataset that contains convnext_tiny_imagenet.pth.
+
+kernel_id: simonhochwebde/rsna-knee-phase1-image
+kernel_dir: kaggle/train
+
+source_notebook: notebooks/03_phase1_image_baseline.ipynb
+output_notebook: kaggle/train/train.ipynb
+
+# Dataset slug on Kaggle that holds offline ImageNet weights (owner/name or name).
+# Update after you create/upload the dataset.
+pretrained_dataset: simonhochwebde/rsna-knee-pretrained

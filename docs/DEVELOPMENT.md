@@ -63,14 +63,14 @@ ruff check src tests scripts
 
 1. Explore real CSVs/reports locally with `data/kaggle/` (`RSNA_DATA_ROOT=data/kaggle`), or prototype DICOM with `data/sample/`.
 2. Move stable code into `src/rsna_knee/`.
-3. Copy or sync `kaggle/kernels/train_template.ipynb` to Kaggle.
-4. Add competition data source in notebook settings.
-5. Install this repo in the Kaggle notebook (see `docs/KAGGLE.md`).
-6. Submit notebook output to the leaderboard.
+3. For **submissions**, use the Phase 1 offline notebook (`scripts/sync_kaggle_train.py`) — internet must be OFF.
+4. Export ImageNet weights once (`scripts/export_pretrained_weights.py`) and attach as a Kaggle Dataset.
+5. Add competition data + pretrained dataset in notebook settings; enable GPU.
+6. Submit notebook output (`submission.csv`) to the leaderboard.
 
 ## Adding a model
 
 1. Implement in `src/rsna_knee/models/`.
-2. Wire config keys in `configs/default.yaml`.
-3. Add a Kaggle training cell that imports from the installed package.
+2. Wire config keys in `configs/default.yaml` / `configs/kaggle.yaml`.
+3. Re-run `python scripts/sync_kaggle_train.py` so the vendored package on Kaggle updates.
 4. Log validation macro ROC-AUC with `rsna_knee.training.macro_roc_auc`.

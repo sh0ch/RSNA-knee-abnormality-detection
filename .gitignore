@@ -63,6 +63,10 @@ data/kaggle/*
 !data/kaggle/README.md
 !data/kaggle/.gitkeep
 
+# Exported ImageNet weights for offline Kaggle (see scripts/export_pretrained_weights.py)
+data/pretrained/
+!data/pretrained/.gitkeep
+
 # Model artifacts
 outputs/
 checkpoints/

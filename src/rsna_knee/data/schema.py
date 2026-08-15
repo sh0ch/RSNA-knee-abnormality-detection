@@ -11,18 +11,11 @@ from rsna_knee.constants import (
     FAT_SUPPRESSION_COL,
     FLUID_COL,
     KAGGLE_LABEL_COLUMNS,
-    PATIENT_SEX_COL,
-    REPORT_COL,
-    SAMPLE_SUBMISSION_CSV,
     SERIES_ID_COL,
     STUDY_ID_COL,
     SUBMISSION_LABEL_COLUMNS,
     TARGET_DISPLAY_NAMES,
     TARGET_LABELS,
-    TEST_CSV,
-    TEST_SERIES_CSV,
-    TRAIN_CSV,
-    TRAIN_SERIES_CSV,
 )
 from rsna_knee.utils.paths import (
     sample_submission_csv,
@@ -125,10 +118,7 @@ def predictions_to_submission(
     ``predictions`` must use canonical TARGET_LABELS as columns (or be a 2D array
     with columns in TARGET_LABELS order).
     """
-    if isinstance(predictions, pd.Series):
-        preds = predictions.to_frame().T
-    else:
-        preds = predictions.copy()
+    preds = predictions.to_frame().T if isinstance(predictions, pd.Series) else predictions.copy()
 
     missing = [label for label in TARGET_LABELS if label not in preds.columns]
     if missing:

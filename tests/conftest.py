@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-
 from scripts.create_sample_data import create_sample_dataset
 
 
