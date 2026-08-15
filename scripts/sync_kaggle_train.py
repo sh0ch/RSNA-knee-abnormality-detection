@@ -55,24 +55,39 @@ def strip_notebook_outputs(nb: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
-def _collect_package_files() -> list[tuple[str, str]]:
-    """Return (relative posix path under src/, file text) for all package modules."""
-    src_root = project_root() / "src" / "rsna_knee"
+def _collect_vendor_files() -> list[tuple[str, str]]:
+    """
+    Files to embed in the Kaggle notebook, paths relative to repo root.
+
+    Includes ``src/rsna_knee/**/*.py`` and ``configs/*.yaml`` so ``load_config``
+    works offline under ``/kaggle/working/rsna_knee_vendor``.
+    """
+    root = project_root()
     files: list[tuple[str, str]] = []
+
+    src_root = root / "src" / "rsna_knee"
     for path in sorted(src_root.rglob("*.py")):
-        rel = path.relative_to(project_root() / "src").as_posix()
+        rel = path.relative_to(root).as_posix()
         files.append((rel, path.read_text(encoding="utf-8")))
-    if not files:
-        raise RuntimeError(f"No Python files found under {src_root}")
+
+    configs_dir = root / "configs"
+    for path in sorted(configs_dir.glob("*.yaml")):
+        rel = path.relative_to(root).as_posix()
+        files.append((rel, path.read_text(encoding="utf-8")))
+
+    if not any(rel.startswith("src/rsna_knee/") for rel, _ in files):
+        raise RuntimeError(f"No package Python files found under {src_root}")
+    if not any(rel.startswith("configs/") for rel, _ in files):
+        raise RuntimeError(f"No YAML configs found under {configs_dir}")
     return files
 
 
 def _vendor_cell_source(files: list[tuple[str, str]]) -> str:
-    """Build a notebook cell that materializes src/rsna_knee under /kaggle/working."""
+    """Build a notebook cell that materializes package + configs under /kaggle/working."""
     payload = json.dumps({rel: text for rel, text in files}, ensure_ascii=False)
     return textwrap.dedent(
         f'''\
-        # Offline vendor: write package sources (no git / no pip / no internet)
+        # Offline vendor: write package + configs (no git / no pip / no internet)
         import json
         import os
         import sys
@@ -88,13 +103,15 @@ def _vendor_cell_source(files: list[tuple[str, str]]) -> str:
 
         if ON_KAGGLE:
             VENDOR_ROOT = Path("/kaggle/working/rsna_knee_vendor")
-            src_dir = VENDOR_ROOT / "src"
             for rel, text in _VENDORED.items():
-                path = src_dir / rel
+                path = VENDOR_ROOT / rel
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(text, encoding="utf-8")
+            src_dir = VENDOR_ROOT / "src"
             sys.path.insert(0, str(src_dir))
-            print(f"Vendored {{len(_VENDORED)}} modules -> {{src_dir}}")
+            n_py = sum(1 for r in _VENDORED if r.endswith(".py"))
+            n_cfg = sum(1 for r in _VENDORED if r.startswith("configs/"))
+            print(f"Vendored {{n_py}} modules + {{n_cfg}} configs -> {{VENDOR_ROOT}}")
         else:
             print("Local run — skipping vendor write (use repo src/ on PYTHONPATH).")
         '''
@@ -104,7 +121,7 @@ def _vendor_cell_source(files: list[tuple[str, str]]) -> str:
 def inject_offline_bootstrap(nb: dict[str, Any], cfg: dict[str, Any]) -> dict[str, Any]:
     """Prepend offline vendor cells; ensure setup finds local or vendored package."""
     out = strip_notebook_outputs(nb)
-    files = _collect_package_files()
+    files = _collect_vendor_files()
 
     bootstrap_md = {
         "cell_type": "markdown",
@@ -113,7 +130,8 @@ def inject_offline_bootstrap(nb: dict[str, Any], cfg: dict[str, Any]) -> dict[st
             GENERATED_BANNER,
             "## Kaggle offline bootstrap\n",
             "\n",
-            "Vendors `src/rsna_knee` into `/kaggle/working` — **no internet**, no git, no pip.\n",
+            "Vendors `src/rsna_knee` + `configs/` into `/kaggle/working` — "
+            "**no internet**, no git, no pip.\n",
             "\n",
             "Phase 1 trains **from scratch** (no pretrained Dataset required).\n",
             "\n",
