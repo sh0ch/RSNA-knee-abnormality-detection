@@ -4,13 +4,17 @@
 # Run: python scripts/sync_kaggle_train.py --push
 #
 # Internet is DISABLED on the kernel (required for competition submission).
-# Phase 1 trains from scratch — no pretrained-weights Dataset required.
+# Package code is delivered via an attached Kaggle Dataset (not embedded in the notebook).
 
 kernel_id: simonhochwebde/rsna-knee-phase1-image
+kernel_title: RSNA Knee Phase1 Image
 kernel_dir: kaggle/train
 
 source_notebook: notebooks/03_phase1_image_baseline.ipynb
 output_notebook: kaggle/train/train.ipynb
+
+# Offline code Dataset (src/ + configs/). Synced on --push.
+code_dataset: simonhochwebde/rsna-knee-code
 
 # Optional: set to "owner/slug" later if switching back to ImageNet init.
 pretrained_dataset: null

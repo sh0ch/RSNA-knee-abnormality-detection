@@ -61,10 +61,10 @@ Push progress:
 2. If library code changed: remind user to commit and push to `main` before Kaggle run (or ask to commit).
 3. Do not push to Kaggle until GitHub has the library changes the EDA notebook depends on.
 
-**Phase 1 train** — notebook **vendors** `src/rsna_knee` into the generated ipynb (`enable_internet: false`):
+**Phase 1 train** — package is an attached Dataset `code_dataset` (`enable_internet: false`):
 
-1. No GitHub push required for package code to appear on Kaggle.
-2. Re-run sync after any `src/rsna_knee/` change so the vendor cell embeds the latest sources.
+1. `--push` stages `src/` + `configs/` and versions the Dataset, then pushes the kernel.
+2. No GitHub clone and no giant embedded sources in the notebook.
 3. From-scratch training — no pretrained Dataset required.
 
 ### Step 3: Regenerate + push

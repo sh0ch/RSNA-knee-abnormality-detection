@@ -60,10 +60,12 @@ class ConvNeXtTinyMIL(nn.Module):
         self.avgpool = backbone.avgpool
         feat_dim = backbone.classifier[2].in_features
 
-        weights_path = resolve_pretrained_weights(
-            explicit=pretrained_path,
-            allow_missing=allow_random_init,
-        )
+        weights_path: Path | None = None
+        if pretrained_path is not None or not allow_random_init:
+            weights_path = resolve_pretrained_weights(
+                explicit=pretrained_path,
+                allow_missing=allow_random_init,
+            )
         if weights_path is not None:
             try:
                 raw = torch.load(weights_path, map_location="cpu", weights_only=True)

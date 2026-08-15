@@ -110,7 +110,7 @@ Slice count, resolution, and orientation vary by site — full distribution stil
 - `KneeStudyDataset`: labeled-only, fluid-sensitive series (up to 3 planes), InstanceNumber sort, cached volumes
 - Masked BCE + pos_weight, study-level 5-fold, mixup + MRI augs, fold ensemble + TTA
 - **From-scratch init** for Phase 1 (pipeline / submit path); ImageNet optional later via `scripts/export_pretrained_weights.py`
-- **Offline Kaggle path:** `scripts/sync_kaggle_train.py` vendors `src/rsna_knee` into the notebook; internet OFF
+- **Offline Kaggle path:** attach Dataset `rsna-knee-code` (`src/` + `configs/`) via `scripts/sync_kaggle_train.py --push`; internet OFF. No source blobs embedded in the notebook.
 
 ### Artifacts
 

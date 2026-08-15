@@ -24,7 +24,7 @@ Kernel settings (`kaggle/train/kernel-metadata.json`):
 - `enable_gpu: true`
 - Competition data attached
 
-The generated notebook writes package sources under `/kaggle/working/rsna_knee_vendor/src` and puts that on `sys.path`.
+The generated notebook attaches Dataset `simonhochwebde/rsna-knee-code` (`src/` + `configs/`) and puts it on `sys.path`. No source blobs are embedded in the notebook.
 
 **Phase 1 init:** trains **from scratch** (pipeline validation on 58 labels — score expected to be weak). Optional ImageNet init later: `scripts/export_pretrained_weights.py` + attach Dataset + set `model.allow_random_init: false`.
 

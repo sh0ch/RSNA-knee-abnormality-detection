@@ -93,4 +93,6 @@ kaggle/eda/runs/*
 kaggle/train/runs/*
 !kaggle/train/runs/README.md
 !kaggle/train/runs/.gitkeep
+# Staged code Dataset contents (metadata is regenerated on sync)
+kaggle/datasets/rsna-knee-code/
 rsna_knee_repo/

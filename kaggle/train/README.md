@@ -8,6 +8,6 @@
 
 Settings: `configs/kaggle_train.yaml`
 
-**Offline submit:** `enable_internet: false`, GPU on. Phase 1 trains **from scratch** (no pretrained Dataset).
+**Offline submit:** `enable_internet: false`, GPU on. Package code is an attached Dataset (`rsna-knee-code`), not embedded in the notebook. Phase 1 trains **from scratch**.
 
 See [docs/KAGGLE.md](../../docs/KAGGLE.md).

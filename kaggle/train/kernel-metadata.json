@@ -1,6 +1,6 @@
 {
   "id": "simonhochwebde/rsna-knee-phase1-image",
-  "title": "RSNA Knee Phase 1 Image Baseline",
+  "title": "RSNA Knee Phase1 Image",
   "code_file": "train.ipynb",
   "language": "python",
   "kernel_type": "notebook",
@@ -9,7 +9,9 @@
   "enable_tpu": false,
   "enable_internet": false,
   "keywords": [],
-  "dataset_sources": [],
+  "dataset_sources": [
+    "simonhochwebde/rsna-knee-code"
+  ],
   "kernel_sources": [],
   "competition_sources": [
     "rsna-knee-abnormality-detection"

@@ -31,7 +31,7 @@ def build_notebook() -> dict:
             "",
             "- **From-scratch** weights (pipeline validation; weak score expected with n=58).",
             "- Reports are **not** used at inference (competition rule).",
-            "- Kaggle scoring: **internet OFF** — package is vendored into the notebook.",
+            "- Kaggle scoring: **internet OFF** — package comes from attached Dataset `rsna-knee-code`.",
             "- Sync: `python scripts/sync_kaggle_train.py --push`",
             "",
             "See [docs/PROJECT_LOG.md](../docs/PROJECT_LOG.md).",

@@ -3,16 +3,17 @@
 Sync the Phase 1 train notebook between the repo and Kaggle (offline-submittable).
 
 Source of truth: notebooks/03_phase1_image_baseline.ipynb
-Kaggle copy:      kaggle/train/train.ipynb  (generated — vendors src/rsna_knee)
+Kaggle copy:      kaggle/train/train.ipynb
 
-Unlike the EDA sync, this does NOT git-clone or pip-install (internet is OFF
-for competition submission). Package code is written into /kaggle/working.
+Offline package delivery: stage ``src/`` + ``configs/`` into a Kaggle Dataset
+(``code_dataset``) and attach it to the kernel. The notebook bootstrap only
+adds that mount to ``sys.path`` — no embedded source blobs.
 
 Usage:
-    python scripts/sync_kaggle_train.py              # regenerate only
-    python scripts/sync_kaggle_train.py --push       # regenerate + kaggle kernels push
-    python scripts/sync_kaggle_train.py --import-run PATH  # import downloaded run + summary
-    python scripts/sync_kaggle_train.py --logs       # fetch last commit run log
+    python scripts/sync_kaggle_train.py              # stage dataset + regenerate notebook
+    python scripts/sync_kaggle_train.py --push       # stage, version dataset, push kernel
+    python scripts/sync_kaggle_train.py --import-run PATH
+    python scripts/sync_kaggle_train.py --logs
 """
 
 from __future__ import annotations
@@ -38,6 +39,7 @@ GENERATED_BANNER = (
 )
 
 RUNS_DIR = "kaggle/train/runs"
+CODE_DATASET_DIR = "kaggle/datasets/rsna-knee-code"
 
 
 def load_config() -> dict[str, Any]:
@@ -55,40 +57,97 @@ def strip_notebook_outputs(nb: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
-def _collect_vendor_files() -> list[tuple[str, str]]:
-    """
-    Files to embed in the Kaggle notebook, paths relative to repo root.
+def _code_dataset_slug(cfg: dict[str, Any]) -> str:
+    """Return owner/slug for the offline code Dataset."""
+    return str(cfg.get("code_dataset") or "simonhochwebde/rsna-knee-code")
 
-    Includes ``src/rsna_knee/**/*.py`` and ``configs/*.yaml`` so ``load_config``
-    works offline under ``/kaggle/working/rsna_knee_vendor``.
-    """
+
+def _code_dataset_mount_name(cfg: dict[str, Any]) -> str:
+    """Folder name under /kaggle/input (slug without owner)."""
+    return _code_dataset_slug(cfg).split("/", 1)[-1]
+
+
+def stage_code_dataset(cfg: dict[str, Any]) -> Path:
+    """Copy src/ + configs/ into the Kaggle Dataset staging directory."""
     root = project_root()
-    files: list[tuple[str, str]] = []
+    stage = root / CODE_DATASET_DIR
+    if stage.exists():
+        shutil.rmtree(stage)
+    stage.mkdir(parents=True)
 
-    src_root = root / "src" / "rsna_knee"
-    for path in sorted(src_root.rglob("*.py")):
-        rel = path.relative_to(root).as_posix()
-        files.append((rel, path.read_text(encoding="utf-8")))
+    shutil.copytree(root / "src" / "rsna_knee", stage / "src" / "rsna_knee")
+    shutil.copytree(root / "configs", stage / "configs")
 
-    configs_dir = root / "configs"
-    for path in sorted(configs_dir.glob("*.yaml")):
-        rel = path.relative_to(root).as_posix()
-        files.append((rel, path.read_text(encoding="utf-8")))
+    slug = _code_dataset_slug(cfg)
+    meta = {
+        "id": slug,
+        "title": _code_dataset_mount_name(cfg),
+        "licenses": [{"name": "MIT"}],
+    }
+    (stage / "dataset-metadata.json").write_text(
+        json.dumps(meta, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    n_py = len(list((stage / "src").rglob("*.py")))
+    n_cfg = len(list((stage / "configs").glob("*.yaml")))
+    print(f"Staged code dataset -> {stage} ({n_py} py, {n_cfg} yaml)")
+    return stage
 
-    if not any(rel.startswith("src/rsna_knee/") for rel, _ in files):
-        raise RuntimeError(f"No package Python files found under {src_root}")
-    if not any(rel.startswith("configs/") for rel, _ in files):
-        raise RuntimeError(f"No YAML configs found under {configs_dir}")
-    return files
+
+def push_code_dataset(cfg: dict[str, Any]) -> None:
+    """Create or version the offline code Dataset on Kaggle."""
+    stage = project_root() / CODE_DATASET_DIR
+    if not (stage / "dataset-metadata.json").is_file():
+        stage_code_dataset(cfg)
+
+    version_cmd = [
+        sys.executable,
+        "-m",
+        "kaggle",
+        "datasets",
+        "version",
+        "-p",
+        str(stage),
+        "-m",
+        f"sync {datetime.now(UTC).strftime('%Y-%m-%d %H:%M UTC')}",
+        "--dir-mode",
+        "zip",
+    ]
+    print("Running:", " ".join(version_cmd))
+    result = subprocess.run(version_cmd, check=False, capture_output=True, text=True)
+    if result.returncode == 0:
+        print(result.stdout or "Dataset versioned.")
+        return
+
+    combined = (result.stdout or "") + (result.stderr or "")
+    print(combined)
+    # First time: create instead of version.
+    if "404" in combined or "does not exist" in combined.lower() or "not found" in combined.lower():
+        create_cmd = [
+            sys.executable,
+            "-m",
+            "kaggle",
+            "datasets",
+            "create",
+            "-p",
+            str(stage),
+            "--dir-mode",
+            "zip",
+        ]
+        print("Running:", " ".join(create_cmd))
+        subprocess.run(create_cmd, check=True)
+        return
+
+    raise RuntimeError(f"Failed to push code dataset (exit {result.returncode})")
 
 
-def _vendor_cell_source(files: list[tuple[str, str]]) -> str:
-    """Build a notebook cell that materializes package + configs under /kaggle/working."""
-    payload = json.dumps({rel: text for rel, text in files}, ensure_ascii=False)
+def _bootstrap_cell_source(cfg: dict[str, Any]) -> str:
+    """Thin bootstrap: point sys.path at the attached code Dataset (no embedded sources)."""
+    mount = _code_dataset_mount_name(cfg)
+    slug = _code_dataset_slug(cfg)
     return textwrap.dedent(
         f'''\
-        # Offline vendor: write package + configs (no git / no pip / no internet)
-        import json
+        # Offline bootstrap: use attached code Dataset (no git / no pip / no embedded sources)
         import os
         import sys
         from pathlib import Path
@@ -99,29 +158,32 @@ def _vendor_cell_source(files: list[tuple[str, str]]) -> str:
             or os.path.isdir("/kaggle/working")
         )
 
-        _VENDORED = json.loads({payload!r})
+        CODE_DATASET = "{slug}"
+        CODE_MOUNT = Path("/kaggle/input/{mount}")
 
         if ON_KAGGLE:
-            VENDOR_ROOT = Path("/kaggle/working/rsna_knee_vendor")
-            for rel, text in _VENDORED.items():
-                path = VENDOR_ROOT / rel
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_text(text, encoding="utf-8")
-            src_dir = VENDOR_ROOT / "src"
+            if not CODE_MOUNT.is_dir():
+                raise FileNotFoundError(
+                    f"Code dataset not mounted at {{CODE_MOUNT}}. "
+                    f"Attach '{{CODE_DATASET}}' in notebook Input "
+                    "(and re-run scripts/sync_kaggle_train.py --push after src/ changes)."
+                )
+            src_dir = CODE_MOUNT / "src"
+            if not (src_dir / "rsna_knee").is_dir():
+                raise FileNotFoundError(f"Expected package at {{src_dir / 'rsna_knee'}}")
             sys.path.insert(0, str(src_dir))
-            n_py = sum(1 for r in _VENDORED if r.endswith(".py"))
-            n_cfg = sum(1 for r in _VENDORED if r.startswith("configs/"))
-            print(f"Vendored {{n_py}} modules + {{n_cfg}} configs -> {{VENDOR_ROOT}}")
+            print(f"Using code dataset: {{CODE_MOUNT}}")
         else:
-            print("Local run — skipping vendor write (use repo src/ on PYTHONPATH).")
+            print("Local run — skipping Kaggle code-dataset bootstrap.")
         '''
     )
 
 
 def inject_offline_bootstrap(nb: dict[str, Any], cfg: dict[str, Any]) -> dict[str, Any]:
-    """Prepend offline vendor cells; ensure setup finds local or vendored package."""
+    """Prepend thin offline bootstrap; patch setup cell for code-dataset root."""
     out = strip_notebook_outputs(nb)
-    files = _collect_vendor_files()
+    mount = _code_dataset_mount_name(cfg)
+    slug = _code_dataset_slug(cfg)
 
     bootstrap_md = {
         "cell_type": "markdown",
@@ -130,10 +192,10 @@ def inject_offline_bootstrap(nb: dict[str, Any], cfg: dict[str, Any]) -> dict[st
             GENERATED_BANNER,
             "## Kaggle offline bootstrap\n",
             "\n",
-            "Vendors `src/rsna_knee` + `configs/` into `/kaggle/working` — "
-            "**no internet**, no git, no pip.\n",
+            f"Uses attached Dataset `{slug}` (`src/` + `configs/`). "
+            "**No internet**, no git, no pip, no embedded source blobs.\n",
             "\n",
-            "Phase 1 trains **from scratch** (no pretrained Dataset required).\n",
+            "Phase 1 trains **from scratch**.\n",
             "\n",
             "Sync: `python scripts/sync_kaggle_train.py --push`\n",
         ],
@@ -142,7 +204,7 @@ def inject_offline_bootstrap(nb: dict[str, Any], cfg: dict[str, Any]) -> dict[st
     bootstrap_code = {
         "cell_type": "code",
         "metadata": {"tags": ["kaggle-bootstrap"]},
-        "source": [line + "\n" for line in _vendor_cell_source(files).split("\n")],
+        "source": [line + "\n" for line in _bootstrap_cell_source(cfg).split("\n")],
         "outputs": [],
         "execution_count": None,
     }
@@ -160,7 +222,8 @@ for candidate in (Path.cwd(), Path.cwd().parent):
         break
 else:
     REPO_ROOT = Path.cwd().parent"""
-        unified_block = """# Kaggle: vendored package above; local: search from notebooks/
+        # Also replace older vendor-based unified block if present.
+        vendor_block = """# Kaggle: vendored package above; local: search from notebooks/
 VENDOR_SRC = Path("/kaggle/working/rsna_knee_vendor/src")
 if VENDOR_SRC.is_dir():
     REPO_ROOT = VENDOR_SRC.parent
@@ -173,8 +236,28 @@ else:
             break
     else:
         REPO_ROOT = Path.cwd().parent"""
+        unified_block = f"""# Kaggle: attached code Dataset; local: search from notebooks/
+CODE_MOUNT = Path("/kaggle/input/{mount}")
+if CODE_MOUNT.is_dir() and (CODE_MOUNT / "src" / "rsna_knee").is_dir():
+    REPO_ROOT = CODE_MOUNT
+    src_dir = CODE_MOUNT / "src"
+    if str(src_dir) not in sys.path:
+        sys.path.insert(0, str(src_dir))
+else:
+    for candidate in (Path.cwd(), Path.cwd().parent):
+        if (candidate / "src" / "rsna_knee").is_dir():
+            REPO_ROOT = candidate
+            break
+    else:
+        REPO_ROOT = Path.cwd().parent"""
         if local_block in src:
             cell["source"] = src.replace(local_block, unified_block).splitlines(keepends=True)
+        elif vendor_block in src:
+            cell["source"] = src.replace(vendor_block, unified_block).splitlines(keepends=True)
+        elif unified_block not in src and "CODE_MOUNT" not in src:
+            # Source already has a prior CODE_MOUNT block from an earlier rebuild — leave it
+            # unless it points at a different mount; rebuild from build_phase1 keeps local_block.
+            pass
         break
 
     out["cells"] = [bootstrap_md, bootstrap_code] + out["cells"]
@@ -186,11 +269,17 @@ def write_kernel_metadata(cfg: dict[str, Any]) -> Path:
     kernel_dir = project_root() / cfg["kernel_dir"]
     kernel_dir.mkdir(parents=True, exist_ok=True)
     meta_path = kernel_dir / "kernel-metadata.json"
+
+    dataset_sources: list[str] = [_code_dataset_slug(cfg)]
     pretrained = cfg.get("pretrained_dataset")
-    dataset_sources = [pretrained] if pretrained else []
+    if pretrained:
+        dataset_sources.append(str(pretrained))
+
     meta = {
         "id": cfg["kernel_id"],
-        "title": "RSNA Knee Phase 1 Image Baseline",
+        # Title slug must match the id suffix (Kaggle 409 if they diverge).
+        "title": cfg.get("kernel_title")
+        or cfg["kernel_id"].split("/", 1)[-1].replace("-", " ").title(),
         "code_file": "train.ipynb",
         "language": "python",
         "kernel_type": "notebook",
@@ -211,6 +300,8 @@ def write_kernel_metadata(cfg: dict[str, Any]) -> Path:
 
 def copy_to_kaggle(cfg: dict[str, Any]) -> Path:
     root = project_root()
+    stage_code_dataset(cfg)
+
     src = root / cfg["source_notebook"]
     dst = root / cfg["output_notebook"]
     dst.parent.mkdir(parents=True, exist_ok=True)
@@ -224,6 +315,7 @@ def copy_to_kaggle(cfg: dict[str, Any]) -> Path:
 
 
 def push_to_kaggle(cfg: dict[str, Any]) -> None:
+    push_code_dataset(cfg)
     kernel_dir = project_root() / cfg["kernel_dir"]
     cmd = [sys.executable, "-m", "kaggle", "kernels", "push", "-p", str(kernel_dir)]
     print("Running:", " ".join(cmd))
@@ -318,7 +410,7 @@ def import_run(path: Path) -> tuple[Path, Path]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--push", action="store_true", help="Push kaggle/train to Kaggle after copy")
+    parser.add_argument("--push", action="store_true", help="Push code dataset + kaggle/train kernel")
     parser.add_argument(
         "--logs",
         action="store_true",

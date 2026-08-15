@@ -40,8 +40,8 @@ def resolve_pretrained_weights(
       2. Kaggle dataset mounts under ``/kaggle/input``
       3. Local ``data/pretrained/{filename}``
 
-    On Kaggle, missing weights raise ``FileNotFoundError`` unless ``allow_missing``.
-    Locally, returns ``None`` when missing and ``allow_missing`` is True (tests / smoke).
+    On Kaggle or locally, returns ``None`` when missing if ``allow_missing`` is True
+    (from-scratch training). Otherwise raises ``FileNotFoundError``.
     """
     candidates: list[Path] = []
 
@@ -56,7 +56,6 @@ def resolve_pretrained_weights(
         input_root = Path("/kaggle/input")
         for rel in _KAGGLE_WEIGHT_CANDIDATES:
             candidates.append(input_root / rel)
-        # Any dataset folder that contains the filename.
         if input_root.is_dir():
             for path in input_root.rglob(filename):
                 candidates.append(path)
@@ -72,7 +71,7 @@ def resolve_pretrained_weights(
         if path.is_file():
             return path
 
-    if allow_missing and not is_kaggle_kernel():
+    if allow_missing:
         return None
 
     searched = "\n  - ".join(str(p) for p in candidates[:12])
