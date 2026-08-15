@@ -17,12 +17,13 @@ model:
   allow_random_init: true
 
 training:
-  batch_size: 2
+  batch_size: 2  # per GPU; DataParallel multiplies by n_gpus
   learning_rate: 1.0e-4
   max_epochs: 1  # smoke; use configs/kaggle.yaml for real runs
   val_fold: 0
   n_folds: 5
   mixup_alpha: 0.4
+  amp: true
 
 inference:
   tta: false
