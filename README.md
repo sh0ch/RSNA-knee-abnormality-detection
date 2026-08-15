@@ -56,7 +56,7 @@ Only **58 / 4,407** training studies have explicit 0/1 labels; the rest are repo
 
 - Source: `notebooks/03_phase1_image_baseline.ipynb`
 - Kaggle (internet OFF): `python scripts/sync_kaggle_train.py --push`
-- Weights: `python scripts/export_pretrained_weights.py` → upload Dataset → attach to kernel
+- Trains **from scratch** (pipeline smoke; weak score expected on 58 labels)
 
 ## Targets (12 multilabel)
 

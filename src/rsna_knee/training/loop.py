@@ -147,7 +147,7 @@ def run_kfold_training(
     checkpoint_dir: Path | str = "checkpoints",
     seed: int = 42,
     pretrained_path: Path | str | None = None,
-    allow_random_init: bool = False,
+    allow_random_init: bool = True,
     tta: bool = True,
     num_workers: int = 0,
     model_name: str = "convnext_tiny_mil",

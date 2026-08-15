@@ -109,7 +109,8 @@ Slice count, resolution, and orientation vary by site — full distribution stil
 - **2.5D ConvNeXt-Tiny** + gated attention MIL (`rsna_knee.models.mil_2p5d`)
 - `KneeStudyDataset`: labeled-only, fluid-sensitive series (up to 3 planes), InstanceNumber sort, cached volumes
 - Masked BCE + pos_weight, study-level 5-fold, mixup + MRI augs, fold ensemble + TTA
-- **Offline Kaggle path:** `scripts/sync_kaggle_train.py` vendors `src/rsna_knee` into the notebook; internet OFF; ImageNet weights from attached Dataset (`scripts/export_pretrained_weights.py`)
+- **From-scratch init** for Phase 1 (pipeline / submit path); ImageNet optional later via `scripts/export_pretrained_weights.py`
+- **Offline Kaggle path:** `scripts/sync_kaggle_train.py` vendors `src/rsna_knee` into the notebook; internet OFF
 
 ### Artifacts
 
@@ -121,15 +122,14 @@ Slice count, resolution, and orientation vary by site — full distribution stil
 
 ### Pretrained weights
 
-- Source: torchvision `ConvNeXt_Tiny_Weights.IMAGENET1K_V1`
-- File: `convnext_tiny_imagenet.pth` (local `data/pretrained/`, gitignored)
-- License: BSD-style via torchvision — allowed as documented public checkpoint
+- **Not required for Phase 1** (`allow_random_init: true`). Goal is a working train → `submission.csv` loop.
+- Optional later: torchvision `ConvNeXt_Tiny_Weights.IMAGENET1K_V1` exported to `convnext_tiny_imagenet.pth`
 
 ### Next
 
-- Export weights, create Kaggle Dataset, push kernel, run GPU train + submit
+- Push kernel, run GPU train + submit (expect weak LB — n=58 from scratch)
 - Record OOF / LB macro ROC-AUC here after first Kaggle run
-- Then Phase 2: report-derived labels for the 4,349 unlabeled studies
+- Then Phase 2: report-derived labels for the 4,349 unlabeled studies; revisit ImageNet init
 
 ---
 
@@ -159,4 +159,4 @@ Slice count, resolution, and orientation vary by site — full distribution stil
 |------|--------|
 | 2026-08-15 | Phase 0: partial labels (58/4407), schema mapping, paths, DICOM spot-check |
 | 2026-08-15 | Kaggle v7: test counts (3/15), 512×512 MR, **filename ≠ slice order** — sort by InstanceNumber |
-| 2026-08-15 | Phase 1 scaffold: ConvNeXt-Tiny MIL notebook, offline vendor sync, weight export |
+| 2026-08-15 | Phase 1 scaffold: ConvNeXt-Tiny MIL notebook, offline vendor sync; **from-scratch** default |

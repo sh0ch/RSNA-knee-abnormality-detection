@@ -7,9 +7,7 @@
   "is_private": true,
   "enable_gpu": true,
   "enable_internet": false,
-  "dataset_sources": [
-    "simonhochwebde/rsna-knee-pretrained"
-  ],
+  "dataset_sources": [],
   "competition_sources": [
     "rsna-knee-abnormality-detection"
   ],

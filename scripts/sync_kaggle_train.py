@@ -111,7 +111,7 @@ def inject_offline_bootstrap(nb: dict[str, Any], cfg: dict[str, Any]) -> dict[st
             "\n",
             "Vendors `src/rsna_knee` into `/kaggle/working` — **no internet**, no git, no pip.\n",
             "\n",
-            f"Attach pretrained weights dataset: `{cfg.get('pretrained_dataset', 'rsna-knee-pretrained')}`\n",
+            f"Phase 1 trains **from scratch** (no pretrained Dataset required).\n",
             "\n",
             "Sync: `python scripts/sync_kaggle_train.py --push`\n",
         ],
@@ -165,8 +165,8 @@ def write_kernel_metadata(cfg: dict[str, Any]) -> Path:
     kernel_dir = project_root() / cfg["kernel_dir"]
     kernel_dir.mkdir(parents=True, exist_ok=True)
     meta_path = kernel_dir / "kernel-metadata.json"
-    pretrained = cfg.get("pretrained_dataset", "rsna-knee-pretrained")
-    # Kaggle dataset_sources want "username/slug" form.
+    pretrained = cfg.get("pretrained_dataset")
+    # Kaggle dataset_sources want "username/slug" form (optional for from-scratch Phase 1).
     dataset_sources = [pretrained] if pretrained else []
     meta = {
         "id": cfg["kernel_id"],

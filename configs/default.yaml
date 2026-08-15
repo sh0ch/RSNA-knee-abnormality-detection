@@ -13,7 +13,8 @@ model:
   name: convnext_tiny_mil
   num_labels: 12
   use_report_text: false
-  pretrained_filename: convnext_tiny_imagenet.pth
+  # Phase 1 pipeline smoke: train from scratch (no ImageNet Dataset needed).
+  allow_random_init: true
 
 training:
   batch_size: 2

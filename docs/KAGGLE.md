@@ -11,14 +11,9 @@ Scoring runs **without internet**. Do not rely on `git clone`, `pip install`, or
 | `notebooks/03_phase1_image_baseline.ipynb` | Source of truth (edit here) |
 | `kaggle/train/train.ipynb` | Generated Kaggle copy (vendors `src/rsna_knee`) |
 | `scripts/sync_kaggle_train.py` | Regenerate + optional `kaggle kernels push` |
-| `configs/kaggle_train.yaml` | Kernel id, pretrained dataset slug |
+| `configs/kaggle_train.yaml` | Kernel id / optional pretrained dataset |
 
 ```bash
-# One-time: export ImageNet ConvNeXt-Tiny weights (needs local internet)
-python scripts/export_pretrained_weights.py
-# Upload data/pretrained/convnext_tiny_imagenet.pth as a Kaggle Dataset
-# (default slug in config: simonhochwebde/rsna-knee-pretrained)
-
 # After editing the notebook or src/
 python scripts/sync_kaggle_train.py --push
 ```
@@ -27,11 +22,11 @@ Kernel settings (`kaggle/train/kernel-metadata.json`):
 
 - `enable_internet: false`
 - `enable_gpu: true`
-- Competition data + pretrained-weights **Dataset** attached
+- Competition data attached
 
-The generated notebook writes package sources under `/kaggle/working/rsna_knee_vendor/src` and puts that on `sys.path`. Missing weights **raise** on Kaggle (no silent random init).
+The generated notebook writes package sources under `/kaggle/working/rsna_knee_vendor/src` and puts that on `sys.path`.
 
-**Pretrained weights license:** torchvision ConvNeXt-Tiny ImageNet1K_V1 (BSD-style; document for competition rules).
+**Phase 1 init:** trains **from scratch** (pipeline validation on 58 labels — score expected to be weak). Optional ImageNet init later: `scripts/export_pretrained_weights.py` + attach Dataset + set `model.allow_random_init: false`.
 
 ### Output
 

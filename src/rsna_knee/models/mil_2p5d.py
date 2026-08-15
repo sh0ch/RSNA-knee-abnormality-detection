@@ -47,7 +47,7 @@ class ConvNeXtTinyMIL(nn.Module):
         num_labels: int = len(TARGET_LABELS),
         *,
         pretrained_path: Path | str | None = None,
-        allow_random_init: bool = False,
+        allow_random_init: bool = True,
         attention_hidden: int = 256,
         dropout: float = 0.2,
     ) -> None:
@@ -141,7 +141,7 @@ def build_model(
     *,
     num_labels: int = len(TARGET_LABELS),
     pretrained_path: Path | str | None = None,
-    allow_random_init: bool = False,
+    allow_random_init: bool = True,
 ) -> nn.Module:
     """Factory used by configs / notebooks."""
     if name in {"convnext_tiny_mil", "baseline"}:

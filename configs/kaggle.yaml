@@ -1,5 +1,5 @@
 # Kaggle kernel overrides — mount competition data automatically
-# Internet must be OFF for submission; attach pretrained weights dataset.
+# Internet must be OFF for submission.
 
 seed: 42
 
@@ -13,7 +13,8 @@ model:
   name: convnext_tiny_mil
   num_labels: 12
   use_report_text: false
-  pretrained_filename: convnext_tiny_imagenet.pth
+  # Phase 1: from-scratch to validate the submit pipeline (n=58 → weak score expected).
+  allow_random_init: true
 
 training:
   batch_size: 2

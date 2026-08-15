@@ -29,8 +29,9 @@ def build_notebook() -> dict:
             "",
             "2.5D **ConvNeXt-Tiny** + gated attention MIL on the **58 labeled** studies.",
             "",
+            "- **From-scratch** weights (pipeline validation; weak score expected with n=58).",
             "- Reports are **not** used at inference (competition rule).",
-            "- Kaggle scoring: **internet OFF** — package is vendored; ImageNet weights come from an attached Dataset.",
+            "- Kaggle scoring: **internet OFF** — package is vendored into the notebook.",
             "- Sync: `python scripts/sync_kaggle_train.py --push`",
             "",
             "See [docs/PROJECT_LOG.md](../docs/PROJECT_LOG.md).",
@@ -66,7 +67,7 @@ from rsna_knee.data import (
     predictions_to_submission,
 )
 from rsna_knee.data.schema import labels_present_mask
-from rsna_knee.models import build_model, resolve_pretrained_weights
+from rsna_knee.models import build_model
 from rsna_knee.training import (
     macro_roc_auc,
     predict_test_ensemble,
@@ -81,11 +82,13 @@ CFG_NAME = "kaggle" if ON_KAGGLE else "default"
 cfg = load_config(CFG_NAME)
 DATA_ROOT = default_data_root()
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+ALLOW_RANDOM = bool(cfg["model"].get("allow_random_init", True))
 
 print(f"Environment : {'Kaggle' if ON_KAGGLE else 'local'}")
 print(f"Data root   : {DATA_ROOT}")
 print(f"Device      : {DEVICE}")
 print(f"Config      : {CFG_NAME}")
+print(f"Init        : {'from-scratch' if ALLOW_RANDOM else 'pretrained'}")
 print(f"Torch       : {torch.__version__}")
 """),
         _md([
@@ -133,22 +136,11 @@ print(f"Wrote {prev_path}")
 display(prev_df.head())
 """),
         _md([
-            "## 3. Pretrained weights + model smoke check",
+            "## 3. Model smoke check (from-scratch)",
             "",
-            "On Kaggle, missing weights **fail fast** (no silent random init).",
+            "No ImageNet Dataset required — Phase 1 validates train → `submission.csv`.",
         ]),
         _code("""
-allow_random = not ON_KAGGLE  # local smoke may skip weights; Kaggle must have Dataset
-try:
-    weights_path = resolve_pretrained_weights(allow_missing=allow_random)
-except FileNotFoundError:
-    weights_path = None
-    if ON_KAGGLE:
-        raise
-    print("WARNING: no pretrained weights — model will use random init (local only).")
-
-print(f"Weights: {weights_path}")
-
 smoke = KneeStudyDataset(
     DATA_ROOT,
     split="train",
@@ -168,8 +160,7 @@ print(f"Labels: {sample['labels']}")
 
 model = build_model(
     cfg["model"]["name"],
-    pretrained_path=weights_path,
-    allow_random_init=allow_random,
+    allow_random_init=ALLOW_RANDOM,
 )
 n_params = sum(p.numel() for p in model.parameters())
 print(f"Model params: {n_params:,}")
@@ -206,8 +197,7 @@ train_result = run_kfold_training(
     max_series=max_series,
     checkpoint_dir=CKPT_DIR,
     seed=int(cfg["seed"]),
-    pretrained_path=weights_path,
-    allow_random_init=allow_random,
+    allow_random_init=ALLOW_RANDOM,
     tta=bool(cfg["inference"].get("tta", False)),
     num_workers=int(cfg["data"].get("num_workers", 0)),
     model_name=cfg["model"]["name"],

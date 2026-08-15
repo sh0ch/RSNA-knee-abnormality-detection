@@ -8,6 +8,6 @@
 
 Settings: `configs/kaggle_train.yaml`
 
-**Offline submit:** `enable_internet: false`. Attach a Dataset containing `convnext_tiny_imagenet.pth` (export with `python scripts/export_pretrained_weights.py`).
+**Offline submit:** `enable_internet: false`, GPU on. Phase 1 trains **from scratch** (no pretrained Dataset).
 
 See [docs/KAGGLE.md](../../docs/KAGGLE.md).
