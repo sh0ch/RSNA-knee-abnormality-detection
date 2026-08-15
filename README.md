@@ -22,18 +22,23 @@ pytest
 | **Kaggle** | Full training, inference, submissions | `/kaggle/input/competitions/rsna-knee-abnormality-detection` |
 
 ```
-Local dev ──push──▶ GitHub ──clone──▶ Kaggle Notebook ──submit──▶ Leaderboard
+Edit notebooks/ in Cursor
+  -> connect to Kaggle Jupyter Server (daily)
+  -> publish Dataset rsna-knee-code when src/ changes
+  -> push_kaggle_kernel.py + Save & Run All (submit)
 ```
+
+See **[docs/KAGGLE.md](docs/KAGGLE.md)** for the Cursor ↔ Kaggle Jupyter Server steps.
 
 ## Repository structure
 
 ```
 ├── src/rsna_knee/       # Core package (DICOM I/O, datasets, metrics, models)
-├── configs/             # default.yaml (local) · kaggle.yaml (notebook)
-├── scripts/             # sample data · EDA/train Kaggle sync · weight export
-├── kaggle/eda/          # Generated EDA kernel
-├── kaggle/train/        # Generated Phase 1 train/submit kernel (internet OFF)
-├── notebooks/           # Local Jupyter experiments
+├── configs/             # default.yaml · kaggle.yaml · kernel settings
+├── scripts/             # sample data · publish Dataset · push kernel · weights
+├── kaggle/eda/          # EDA kernel-metadata.json (submit settings)
+├── kaggle/train/        # Phase 1 kernel-metadata.json (internet OFF)
+├── notebooks/           # Source notebooks (edit here; connect remote kernel)
 ├── tests/               # pytest suite
 └── docs/                # Documentation + project log
 ```
@@ -46,7 +51,7 @@ Local dev ──push──▶ GitHub ──clone──▶ Kaggle Notebook ──
 | [docs/COMPETITION.md](docs/COMPETITION.md) | Task, labels, dates, rules summary |
 | [docs/DATA.md](docs/DATA.md) | CSV schemas, DICOM layout, preprocessing |
 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Setup, standards, project workflow |
-| [docs/KAGGLE.md](docs/KAGGLE.md) | Running notebooks and submissions |
+| [docs/KAGGLE.md](docs/KAGGLE.md) | Jupyter Server daily loop + submit |
 
 ## Key finding (Phase 0)
 
@@ -55,7 +60,8 @@ Only **58 / 4,407** training studies have explicit 0/1 labels; the rest are repo
 ## Phase 1 notebook
 
 - Source: `notebooks/03_phase1_image_baseline.ipynb`
-- Kaggle (internet OFF): `python scripts/sync_kaggle_train.py --push`
+- Package on Kaggle: `python scripts/publish_code_dataset.py`
+- Submit push: `python scripts/push_kaggle_kernel.py train`
 - Trains **from scratch** (pipeline smoke; weak score expected on 58 labels)
 
 ## Targets (12 multilabel)
@@ -82,7 +88,8 @@ print(volume.shape)  # (slices, H, W)
 ## EDA notebook
 
 - Source: `notebooks/02_eda_phase0.ipynb`
-- Kaggle: `python scripts/sync_kaggle_eda.py --push` → see [docs/KAGGLE.md](docs/KAGGLE.md)
+- Daily: Cursor → Kaggle Jupyter Server — [docs/KAGGLE.md](docs/KAGGLE.md)
+- Submit push: `python scripts/push_kaggle_kernel.py eda`
 
 ## License
 

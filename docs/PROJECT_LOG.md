@@ -110,15 +110,15 @@ Slice count, resolution, and orientation vary by site — full distribution stil
 - `KneeStudyDataset`: labeled-only, fluid-sensitive series (up to 3 planes), InstanceNumber sort, cached volumes
 - Masked BCE + pos_weight, study-level 5-fold, mixup + MRI augs, fold ensemble + TTA
 - **From-scratch init** for Phase 1 (pipeline / submit path); ImageNet optional later via `scripts/export_pretrained_weights.py`
-- **Offline Kaggle path:** attach Dataset `rsna-knee-code` (`src/` + `configs/`) via `scripts/sync_kaggle_train.py --push`; internet OFF. No source blobs embedded in the notebook.
+- **Offline Kaggle path:** Dataset `rsna-knee-code` (`src/` + `configs/`) via `scripts/publish_code_dataset.py`; internet OFF. Daily runs: Cursor → Kaggle Jupyter Server ([KAGGLE.md](KAGGLE.md)).
 
 ### Artifacts
 
 | Path | Role |
 |------|------|
-| `notebooks/03_phase1_image_baseline.ipynb` | Source notebook |
-| `kaggle/train/train.ipynb` | Generated submit kernel |
-| `configs/kaggle.yaml` / `configs/kaggle_train.yaml` | Train + kernel metadata |
+| `notebooks/03_phase1_image_baseline.ipynb` | Source notebook (edit + remote kernel) |
+| `kaggle/train/kernel-metadata.json` | Submit kernel settings |
+| `configs/kaggle.yaml` / `configs/kaggle_train.yaml` | Train + kernel ids |
 
 ### Pretrained weights
 
@@ -127,8 +127,9 @@ Slice count, resolution, and orientation vary by site — full distribution stil
 
 ### Next
 
-- Push kernel, run GPU train + submit (expect weak LB — n=58 from scratch)
-- Record OOF / LB macro ROC-AUC here after first Kaggle run
+- Connect Cursor to Kaggle Jupyter Server (prefer T4), publish Dataset, run GPU train
+- Submit via `python scripts/push_kaggle_kernel.py train` + Save & Run All
+- Record OOF / LB macro ROC-AUC here after first successful Kaggle run
 - Then Phase 2: report-derived labels for the 4,349 unlabeled studies; revisit ImageNet init
 
 ---
@@ -160,3 +161,4 @@ Slice count, resolution, and orientation vary by site — full distribution stil
 | 2026-08-15 | Phase 0: partial labels (58/4407), schema mapping, paths, DICOM spot-check |
 | 2026-08-15 | Kaggle v7: test counts (3/15), 512×512 MR, **filename ≠ slice order** — sort by InstanceNumber |
 | 2026-08-15 | Phase 1 scaffold: ConvNeXt-Tiny MIL notebook, offline vendor sync; **from-scratch** default |
+| 2026-08-15 | Workflow: Cursor ↔ Kaggle Jupyter Server; Dataset publish + thin kernel push; removed dual-notebook sync clones |

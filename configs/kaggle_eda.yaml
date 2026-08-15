@@ -1,14 +1,11 @@
-# Settings for scripts/sync_kaggle_eda.py (Kaggle EDA notebook)
+# Settings for EDA kernel (Kaggle Jupyter Server + submit push)
 #
-# Edit notebooks/02_eda_phase0.ipynb for analysis cells.
-# Run: python scripts/sync_kaggle_eda.py --push
+# Edit: notebooks/02_eda_phase0.ipynb
+# Publish package: python scripts/publish_code_dataset.py
+# Submit push:     python scripts/push_kaggle_kernel.py eda
 
 kernel_id: simonhochwebde/rsna-knee-eda-phase-0
 kernel_dir: kaggle/eda
-
-# Cloned on Kaggle in the bootstrap cell (must match your public GitHub repo)
-repo_url: https://github.com/sh0ch/RSNA-knee-abnormality-detection.git
-branch: main
-
 source_notebook: notebooks/02_eda_phase0.ipynb
-output_notebook: kaggle/eda/eda_phase0.ipynb
+code_file: eda_phase0.ipynb
+code_dataset: simonhochwebde/rsna-knee-code

@@ -1,16 +1,3 @@
-# Kaggle Phase 1 train run artifacts (local only)
+# Imported Phase 1 runs (gitignored)
 
-Populated by:
-
-```bash
-python scripts/sync_kaggle_train.py --import-run PATH_TO_DOWNLOADED.ipynb
-python scripts/sync_kaggle_train.py --logs
-```
-
-| File | Purpose |
-|------|---------|
-| `latest.ipynb` | Last downloaded notebook **with outputs** (gitignored) |
-| `last_run_summary.txt` | Text extract of stdout for Cursor |
-| `last_commit.log` | Stdout/stderr from last **Save & Run All** (via `--logs`) |
-
-See [docs/KAGGLE.md](../../../docs/KAGGLE.md).
+Copy a downloaded executed notebook from Kaggle here for local review, e.g. `latest.ipynb`.

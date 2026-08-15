@@ -1,10 +1,9 @@
-# Kaggle EDA kernel
+# EDA kernel (Kaggle)
 
-`eda_phase0.ipynb` in this folder is **auto-generated**. Do not edit it directly.
+| Local source | Submit push |
+|--------------|-------------|
+| `notebooks/02_eda_phase0.ipynb` | `python scripts/push_kaggle_kernel.py eda` |
 
-| Edit here | Then run |
-|-----------|----------|
-| `notebooks/02_eda_phase0.ipynb` | `python scripts/sync_kaggle_eda.py --push` |
+Daily loop: Cursor → Kaggle Jupyter Server (see [docs/KAGGLE.md](../../docs/KAGGLE.md)).
 
-Kaggle settings: `configs/kaggle_eda.yaml`  
-Full workflow (push, pull runs, Cursor loop): **[docs/KAGGLE_NOTEBOOK_SYNC.md](../../docs/KAGGLE_NOTEBOOK_SYNC.md)**
+Settings: `kernel-metadata.json` (competition data + Dataset `rsna-knee-code`).

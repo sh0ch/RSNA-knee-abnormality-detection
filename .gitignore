@@ -84,15 +84,23 @@ lightning_logs/
 Thumbs.db
 desktop.ini
 
-# Kaggle kernel outputs
+# Root / accidental logs
+*.log
+
+# Kaggle: working copies, staged Dataset, nested clones, generated kernels
 kaggle/working/
 kaggle/output/
+kaggle/eda/run_output/
+kaggle/eda/pull_test/
+kaggle/eda/eda_phase0.ipynb
+kaggle/train/train.ipynb
+kaggle/datasets/rsna-knee-code/
+rsna_knee_repo/
+
+# Imported executed runs (local only)
 kaggle/eda/runs/*
 !kaggle/eda/runs/README.md
 !kaggle/eda/runs/.gitkeep
 kaggle/train/runs/*
 !kaggle/train/runs/README.md
 !kaggle/train/runs/.gitkeep
-# Staged code Dataset contents (metadata is regenerated on sync)
-kaggle/datasets/rsna-knee-code/
-rsna_knee_repo/

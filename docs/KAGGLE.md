@@ -1,44 +1,73 @@
 # Running on Kaggle
 
-## Competition submission (internet OFF)
+Two paths:
 
-Scoring runs **without internet**. Do not rely on `git clone`, `pip install`, or downloading weights inside the submit notebook.
+1. **Daily loop** — edit notebooks in Cursor, run cells on a **Kaggle Jupyter Server** (GPU / competition data).
+2. **Submit** — push the notebook once, then **Save Version → Save & Run All** on Kaggle (required for scoring).
 
-### Phase 1 image baseline (recommended)
+Package code (`src/rsna_knee/`) is **not** git-cloned. Publish it as Dataset `simonhochwebde/rsna-knee-code` and attach that Dataset to the kernel.
 
-| File | Purpose |
-|------|---------|
-| `notebooks/03_phase1_image_baseline.ipynb` | Source of truth (edit here) |
-| `kaggle/train/train.ipynb` | Generated Kaggle copy (vendors `src/rsna_knee`) |
-| `scripts/sync_kaggle_train.py` | Regenerate + optional `kaggle kernels push` |
-| `configs/kaggle_train.yaml` | Kernel id / optional pretrained dataset |
+## Daily loop — Cursor ↔ Kaggle Jupyter Server
+
+[Official docs](https://www.kaggle.com/docs/notebooks) (VS Code Compatible URL; Cursor uses the same kernel picker).
+
+1. On Kaggle, open the EDA or Phase 1 kernel. Attach:
+   - Competition: `rsna-knee-abnormality-detection`
+   - Dataset: `simonhochwebde/rsna-knee-code`
+   - GPU for training (prefer **T4**, not P100 — current Kaggle PyTorch needs sm_70+)
+2. **Run → Kaggle Jupyter Server → Start**.
+3. Under **Manually Connect**, copy the **VS Code Compatible URL**.
+4. In Cursor, open:
+   - EDA: `notebooks/02_eda_phase0.ipynb`
+   - Train: `notebooks/03_phase1_image_baseline.ipynb`
+5. Kernel picker → **Select Another Kernel** → **Existing Jupyter Server** → paste the URL → name it (e.g. `Kaggle GPU`).
+6. Run cells. Check with `!nvidia-smi` if using GPU.
+
+Reconnect with a fresh URL if the session times out. The local `.ipynb` is **not** synced to the Kaggle notebook file — only the execution backend is shared.
+
+After changing `src/` or `configs/`, republish the Dataset before expecting new imports on the remote kernel:
 
 ```bash
-# After editing the notebook or src/
-python scripts/sync_kaggle_train.py --push
+python scripts/publish_code_dataset.py
 ```
 
-Kernel settings (`kaggle/train/kernel-metadata.json`):
+Then **restart** the Kaggle Jupyter Server session so it mounts the new Dataset version.
 
-- `enable_internet: false`
-- `enable_gpu: true`
-- Competition data attached
+## Submit path (leaderboard)
 
-The generated notebook attaches Dataset `simonhochwebde/rsna-knee-code` (`src/` + `configs/`) and puts it on `sys.path`. No source blobs are embedded in the notebook.
+Interactive Cursor sessions do **not** create a scored kernel version.
 
-**Phase 1 init:** trains **from scratch** (pipeline validation on 58 labels — score expected to be weak). Optional ImageNet init later: `scripts/export_pretrained_weights.py` + attach Dataset + set `model.allow_random_init: false`.
+```bash
+# If src/ or configs/ changed:
+python scripts/publish_code_dataset.py
 
-### Output
+# Copy source notebook into kaggle/{eda|train}/ and push:
+python scripts/push_kaggle_kernel.py eda
+python scripts/push_kaggle_kernel.py train
+```
 
-- Write `/kaggle/working/submission.csv` with columns matching `sample_submission.csv`.
-- **Save Version → Save & Run All**, then submit the notebook output.
+On Kaggle:
+
+1. Open the kernel → confirm Input has competition data + `rsna-knee-code`.
+2. Train: **Internet OFF**, **GPU ON**. EDA: internet may stay ON.
+3. **Save Version → Save & Run All**.
+4. Submit `/kaggle/working/submission.csv` from the Output tab (train).
+
+## Kernels
+
+| Role | Edit locally | Kernel id | Metadata |
+|------|--------------|-----------|----------|
+| EDA | `notebooks/02_eda_phase0.ipynb` | `simonhochwebde/rsna-knee-eda-phase-0` | `kaggle/eda/kernel-metadata.json` |
+| Phase 1 | `notebooks/03_phase1_image_baseline.ipynb` | `simonhochwebde/rsna-knee-phase1-image` | `kaggle/train/kernel-metadata.json` |
+
+Configs: `configs/kaggle_eda.yaml`, `configs/kaggle_train.yaml`.
 
 ## Data paths
 
 ```python
 from rsna_knee.utils.paths import default_data_root, is_kaggle_kernel
 
-print(is_kaggle_kernel())  # True
+print(is_kaggle_kernel())  # True on Kaggle
 print(default_data_root())  # /kaggle/input/competitions/rsna-knee-abnormality-detection
 ```
 
@@ -47,28 +76,9 @@ print(default_data_root())  # /kaggle/input/competitions/rsna-knee-abnormality-d
 ```python
 from rsna_knee.utils.config import load_config
 
-cfg = load_config("kaggle")
+cfg = load_config("kaggle")  # or "default" locally
 ```
 
-## EDA notebook (Phase 0) — internet OK for exploration
+## Optional: import a downloaded run
 
-EDA may use git clone + pip (interactive / non-submit). **Do not use that pattern for leaderboard submissions.**
-
-**Workflow doc:** [KAGGLE_NOTEBOOK_SYNC.md](KAGGLE_NOTEBOOK_SYNC.md)
-
-| File | Purpose |
-|------|---------|
-| `notebooks/02_eda_phase0.ipynb` | Source of truth (edit here) |
-| `kaggle/eda/eda_phase0.ipynb` | Generated Kaggle copy (do not edit) |
-| `scripts/sync_kaggle_eda.py` | Regenerate, push, pull, logs, import-run |
-
-```bash
-python scripts/sync_kaggle_eda.py --push
-python scripts/sync_kaggle_eda.py --import-run PATH_TO_DOWNLOAD.ipynb
-```
-
-GPU is not required for EDA (`enable_gpu: false` in metadata).
-
-## Deprecated
-
-`kaggle/kernels/train_template.ipynb` is a pointer only — use Phase 1 above.
+After downloading an executed notebook from the Kaggle UI, copy it under `kaggle/eda/runs/` or `kaggle/train/runs/` (gitignored) for local review.
