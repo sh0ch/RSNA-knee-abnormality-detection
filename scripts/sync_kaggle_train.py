@@ -11,16 +11,20 @@ for competition submission). Package code is written into /kaggle/working.
 Usage:
     python scripts/sync_kaggle_train.py              # regenerate only
     python scripts/sync_kaggle_train.py --push       # regenerate + kaggle kernels push
+    python scripts/sync_kaggle_train.py --import-run PATH  # import downloaded run + summary
+    python scripts/sync_kaggle_train.py --logs       # fetch last commit run log
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import subprocess
 import sys
 import textwrap
 from copy import deepcopy
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -32,6 +36,8 @@ GENERATED_BANNER = (
     "<!-- AUTO-GENERATED from notebooks/03_phase1_image_baseline.ipynb — do not edit. "
     "Run: python scripts/sync_kaggle_train.py --push -->\n"
 )
+
+RUNS_DIR = "kaggle/train/runs"
 
 
 def load_config() -> dict[str, Any]:
@@ -63,9 +69,7 @@ def _collect_package_files() -> list[tuple[str, str]]:
 
 def _vendor_cell_source(files: list[tuple[str, str]]) -> str:
     """Build a notebook cell that materializes src/rsna_knee under /kaggle/working."""
-    # Embed as a JSON object of path -> source for compact, safe round-trip.
     payload = json.dumps({rel: text for rel, text in files}, ensure_ascii=False)
-    # Escape for embedding inside a Python triple-quoted string via json already.
     return textwrap.dedent(
         f'''\
         # Offline vendor: write package sources (no git / no pip / no internet)
@@ -111,7 +115,7 @@ def inject_offline_bootstrap(nb: dict[str, Any], cfg: dict[str, Any]) -> dict[st
             "\n",
             "Vendors `src/rsna_knee` into `/kaggle/working` — **no internet**, no git, no pip.\n",
             "\n",
-            f"Phase 1 trains **from scratch** (no pretrained Dataset required).\n",
+            "Phase 1 trains **from scratch** (no pretrained Dataset required).\n",
             "\n",
             "Sync: `python scripts/sync_kaggle_train.py --push`\n",
         ],
@@ -125,7 +129,6 @@ def inject_offline_bootstrap(nb: dict[str, Any], cfg: dict[str, Any]) -> dict[st
         "execution_count": None,
     }
 
-    # Patch setup cell repo-root resolution if present (same pattern as EDA).
     for cell in out["cells"]:
         if cell["cell_type"] != "code":
             continue
@@ -166,7 +169,6 @@ def write_kernel_metadata(cfg: dict[str, Any]) -> Path:
     kernel_dir.mkdir(parents=True, exist_ok=True)
     meta_path = kernel_dir / "kernel-metadata.json"
     pretrained = cfg.get("pretrained_dataset")
-    # Kaggle dataset_sources want "username/slug" form (optional for from-scratch Phase 1).
     dataset_sources = [pretrained] if pretrained else []
     meta = {
         "id": cfg["kernel_id"],
@@ -210,11 +212,116 @@ def push_to_kaggle(cfg: dict[str, Any]) -> None:
     subprocess.run(cmd, check=True)
 
 
+def pull_logs(cfg: dict[str, Any]) -> Path:
+    from kaggle.api.kaggle_api_extended import KaggleApi
+
+    runs_dir = project_root() / RUNS_DIR
+    runs_dir.mkdir(parents=True, exist_ok=True)
+    out_path = runs_dir / "last_commit.log"
+
+    api = KaggleApi()
+    api.authenticate()
+    logs = api.kernels_logs(cfg["kernel_id"])
+    out_path.write_text(logs, encoding="utf-8")
+    print(f"Wrote commit log to {out_path} ({len(logs):,} chars)")
+    return out_path
+
+
+def _output_text(output: dict[str, Any]) -> str:
+    otype = output.get("output_type")
+    if otype == "stream":
+        text = output.get("text", "")
+        return text if isinstance(text, str) else "".join(text)
+    if otype in ("execute_result", "display_data"):
+        data = output.get("data", {})
+        parts: list[str] = []
+        if "text/plain" in data:
+            tp = data["text/plain"]
+            parts.append(tp if isinstance(tp, str) else "".join(tp))
+        if "text/html" in data:
+            parts.append("[html table/display omitted]")
+        if "image/png" in data:
+            parts.append("[figure]")
+        return "\n".join(parts)
+    if otype == "error":
+        return f"ERROR: {output.get('ename')}: {output.get('evalue')}"
+    return ""
+
+
+def summarize_notebook(nb: dict[str, Any]) -> str:
+    lines: list[str] = [
+        f"Extracted: {datetime.now(UTC).isoformat()}",
+        f"Cells: {len(nb['cells'])}",
+        "",
+    ]
+    for i, cell in enumerate(nb["cells"]):
+        if cell["cell_type"] != "code":
+            continue
+        src_lines = "".join(cell.get("source", [])).strip().splitlines()
+        header = src_lines[0][:100] if src_lines else "(empty)"
+        lines.append(f"=== Cell {i}: {header} ===")
+        outputs = cell.get("outputs", [])
+        if not outputs:
+            lines.append("(no outputs)")
+            lines.append("")
+            continue
+        for output in outputs:
+            text = _output_text(output).strip()
+            if text:
+                lines.append(text)
+        lines.append("")
+    return "\n".join(lines).strip() + "\n"
+
+
+def import_run(path: Path) -> tuple[Path, Path]:
+    if not path.is_file():
+        raise FileNotFoundError(f"Notebook not found: {path}")
+
+    runs_dir = project_root() / RUNS_DIR
+    runs_dir.mkdir(parents=True, exist_ok=True)
+
+    stamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+    archived = runs_dir / f"run_{stamp}.ipynb"
+    latest = runs_dir / "latest.ipynb"
+    summary_path = runs_dir / "last_run_summary.txt"
+
+    shutil.copy2(path, archived)
+    shutil.copy2(path, latest)
+
+    nb = json.loads(path.read_text(encoding="utf-8"))
+    summary = summarize_notebook(nb)
+    summary_path.write_text(summary, encoding="utf-8")
+
+    print(f"Archived run  : {archived}")
+    print(f"Latest run    : {latest}")
+    print(f"Run summary   : {summary_path}")
+    return latest, summary_path
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--push", action="store_true", help="Push kaggle/train to Kaggle after copy")
+    parser.add_argument(
+        "--logs",
+        action="store_true",
+        help="Fetch stdout/stderr from the last Save & Run All commit",
+    )
+    parser.add_argument(
+        "--import-run",
+        metavar="PATH",
+        help="Copy a downloaded executed notebook into kaggle/train/runs/ and write a summary",
+    )
     args = parser.parse_args()
     cfg = load_config()
+
+    if args.import_run:
+        import_run(Path(args.import_run))
+        return
+
+    if args.logs:
+        pull_logs(cfg)
+        return
+
     copy_to_kaggle(cfg)
     if args.push:
         push_to_kaggle(cfg)

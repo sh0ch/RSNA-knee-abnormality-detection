@@ -90,4 +90,7 @@ kaggle/output/
 kaggle/eda/runs/*
 !kaggle/eda/runs/README.md
 !kaggle/eda/runs/.gitkeep
+kaggle/train/runs/*
+!kaggle/train/runs/README.md
+!kaggle/train/runs/.gitkeep
 rsna_knee_repo/
