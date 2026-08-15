@@ -66,35 +66,24 @@ Template notebook: `kaggle/kernels/train_template.ipynb`
 
 ## EDA notebook (Phase 0)
 
-Pre-built Kaggle notebook with repo bootstrap included:
+Pre-built Kaggle notebook with repo bootstrap included.
+
+**Workflow doc:** [KAGGLE_NOTEBOOK_SYNC.md](KAGGLE_NOTEBOOK_SYNC.md) — push/pull loop with Cursor, import downloaded runs, logs.
 
 | File | Purpose |
 |------|---------|
-| `kaggle/eda/eda_phase0.ipynb` | Full EDA on competition data |
-| `kaggle/eda/kernel-metadata.json` | Settings for `kaggle kernels push` |
-| `scripts/build_eda_notebook.py` | Regenerate clean `notebooks/02_eda_phase0.ipynb` (no outputs) |
-| `scripts/sync_kaggle_eda.py` | Regenerate + push EDA notebook to Kaggle |
+| `notebooks/02_eda_phase0.ipynb` | Source of truth (edit here) |
+| `kaggle/eda/eda_phase0.ipynb` | Generated Kaggle copy (do not edit) |
+| `kaggle/eda/runs/latest.ipynb` | Last downloaded run with outputs (local, gitignored) |
+| `scripts/sync_kaggle_eda.py` | Regenerate, push, pull, logs, import-run |
 
-### Sync notebook to Kaggle
-
-**Source of truth:** `notebooks/02_eda_phase0.ipynb`  
-**Generated copy:** `kaggle/eda/eda_phase0.ipynb` (do not edit by hand)
-
-Settings: `configs/kaggle_eda.yaml` (kernel id, GitHub clone URL)
+Quick commands:
 
 ```bash
-python scripts/sync_kaggle_eda.py           # regenerate kaggle/eda/eda_phase0.ipynb
-python scripts/sync_kaggle_eda.py --push    # regenerate + kaggle kernels push
-python scripts/sync_kaggle_eda.py --pull    # download from Kaggle (merge into source manually)
+python scripts/sync_kaggle_eda.py --push
+python scripts/sync_kaggle_eda.py --import-run PATH_TO_DOWNLOAD.ipynb
+python scripts/sync_kaggle_eda.py --logs
 ```
-
-### Push from your machine (manual)
-
-1. Push this repo to GitHub (the bootstrap cell clones it on Kaggle).
-2. Edit `configs/kaggle_eda.yaml` if needed (`repo_url`, `kernel_id`).
-3. Configure the [Kaggle API](https://github.com/Kaggle/kaggle-api).
-4. Run `python scripts/sync_kaggle_eda.py --push`
-5. Open the notebook on Kaggle → **Save & Run All** (Internet must be enabled).
 
 GPU is not required for EDA (`enable_gpu: false` in metadata).
 

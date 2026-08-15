@@ -8,16 +8,23 @@ Kaggle copy:      kaggle/eda/eda_phase0.ipynb  (generated, do not edit by hand)
 Usage:
     python scripts/sync_kaggle_eda.py              # copy only
     python scripts/sync_kaggle_eda.py --push       # copy + kaggle kernels push
-    python scripts/sync_kaggle_eda.py --pull       # download from Kaggle (review before merging)
+    python scripts/sync_kaggle_eda.py --pull       # download source from Kaggle (no outputs)
+    python scripts/sync_kaggle_eda.py --logs       # fetch last commit run log
+    python scripts/sync_kaggle_eda.py --import-run PATH  # import downloaded run + summary
+
+See docs/KAGGLE_NOTEBOOK_SYNC.md for the full workflow.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import re
+import shutil
 import subprocess
 import sys
 from copy import deepcopy
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -29,6 +36,11 @@ GENERATED_BANNER = (
     "<!-- AUTO-GENERATED from notebooks/02_eda_phase0.ipynb — do not edit on disk. "
     "Run: python scripts/sync_kaggle_eda.py --push -->\n"
 )
+
+RUNS_DIR = "kaggle/eda/runs"
+LATEST_RUN_NOTEBOOK = f"{RUNS_DIR}/latest.ipynb"
+LAST_RUN_SUMMARY = f"{RUNS_DIR}/last_run_summary.txt"
+LAST_COMMIT_LOG = f"{RUNS_DIR}/last_commit.log"
 
 
 def load_config() -> dict[str, Any]:
@@ -88,6 +100,11 @@ def inject_kaggle_bootstrap(nb: dict[str, Any], cfg: dict[str, Any]) -> dict[str
             "        subprocess.run(\n",
             '            ["git", "clone", "--depth", "1", "-b", BRANCH, REPO_URL, WORK_DIR],\n',
             "            check=True,\n",
+            "        )\n",
+            "    else:\n",
+            "        subprocess.run(\n",
+            '            ["git", "-C", WORK_DIR, "pull", "--ff-only", "origin", BRANCH],\n',
+            "            check=False,\n",
             "        )\n",
             '    subprocess.run(["pip", "install", "-q", "-e", f"{WORK_DIR}[dev]"], check=True)\n',
             '    sys.path.insert(0, f"{WORK_DIR}/src")\n',
@@ -171,16 +188,101 @@ def pull_from_kaggle(cfg: dict[str, Any]) -> Path:
     subprocess.run(cmd, check=True)
     pulled = kernel_dir / "eda_phase0.ipynb"
     if not pulled.is_file():
-        # Kaggle may name file from slug
         candidates = list(kernel_dir.glob("*.ipynb"))
         if len(candidates) == 1:
             pulled = candidates[0]
     print(f"Pulled notebook to {pulled}")
     print(
-        "Review diff against notebooks/02_eda_phase0.ipynb and merge analysis cells manually "
-        "(ignore bootstrap cells when copying back)."
+        "Source only (no outputs). For executed results use --import-run after downloading "
+        "from Kaggle, or --logs for commit stdout."
     )
     return pulled
+
+
+def pull_logs(cfg: dict[str, Any]) -> Path:
+    from kaggle.api.kaggle_api_extended import KaggleApi
+
+    runs_dir = project_root() / RUNS_DIR
+    runs_dir.mkdir(parents=True, exist_ok=True)
+    out_path = runs_dir / "last_commit.log"
+
+    api = KaggleApi()
+    api.authenticate()
+    logs = api.kernels_logs(cfg["kernel_id"])
+    out_path.write_text(logs, encoding="utf-8")
+    print(f"Wrote commit log to {out_path} ({len(logs):,} chars)")
+    return out_path
+
+
+def _output_text(output: dict[str, Any]) -> str:
+    otype = output.get("output_type")
+    if otype == "stream":
+        text = output.get("text", "")
+        return text if isinstance(text, str) else "".join(text)
+    if otype in ("execute_result", "display_data"):
+        data = output.get("data", {})
+        parts: list[str] = []
+        if "text/plain" in data:
+            tp = data["text/plain"]
+            parts.append(tp if isinstance(tp, str) else "".join(tp))
+        if "text/html" in data:
+            parts.append("[html table/display omitted]")
+        if "image/png" in data:
+            parts.append("[figure]")
+        return "\n".join(parts)
+    if otype == "error":
+        return f"ERROR: {output.get('ename')}: {output.get('evalue')}"
+    return ""
+
+
+def summarize_notebook(nb: dict[str, Any]) -> str:
+    lines: list[str] = [
+        f"Extracted: {datetime.now(UTC).isoformat()}",
+        f"Cells: {len(nb['cells'])}",
+        "",
+    ]
+    for i, cell in enumerate(nb["cells"]):
+        if cell["cell_type"] != "code":
+            continue
+        src_lines = "".join(cell.get("source", [])).strip().splitlines()
+        header = src_lines[0][:100] if src_lines else "(empty)"
+        lines.append(f"=== Cell {i}: {header} ===")
+        outputs = cell.get("outputs", [])
+        if not outputs:
+            lines.append("(no outputs)")
+            lines.append("")
+            continue
+        for output in outputs:
+            text = _output_text(output).strip()
+            if text:
+                lines.append(text)
+        lines.append("")
+    return "\n".join(lines).strip() + "\n"
+
+
+def import_run(path: Path) -> tuple[Path, Path]:
+    if not path.is_file():
+        raise FileNotFoundError(f"Notebook not found: {path}")
+
+    runs_dir = project_root() / RUNS_DIR
+    runs_dir.mkdir(parents=True, exist_ok=True)
+
+    stamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+    archived = runs_dir / f"run_{stamp}.ipynb"
+    latest = runs_dir / "latest.ipynb"
+    summary_path = runs_dir / "last_run_summary.txt"
+
+    shutil.copy2(path, archived)
+    shutil.copy2(path, latest)
+
+    nb = json.loads(path.read_text(encoding="utf-8"))
+    summary = summarize_notebook(nb)
+    summary_path.write_text(summary, encoding="utf-8")
+
+    print(f"Archived run  : {archived}")
+    print(f"Latest run    : {latest}")
+    print(f"Run summary   : {summary_path}")
+    return latest, summary_path
 
 
 def main() -> None:
@@ -189,10 +291,28 @@ def main() -> None:
     parser.add_argument(
         "--pull",
         action="store_true",
-        help="Pull notebook from Kaggle (for manual merge into source)",
+        help="Pull notebook source from Kaggle (no outputs)",
+    )
+    parser.add_argument(
+        "--logs",
+        action="store_true",
+        help="Fetch stdout/stderr from the last Save & Run All commit",
+    )
+    parser.add_argument(
+        "--import-run",
+        metavar="PATH",
+        help="Copy a downloaded executed notebook into kaggle/eda/runs/ and write a summary",
     )
     args = parser.parse_args()
     cfg = load_config()
+
+    if args.import_run:
+        import_run(Path(args.import_run))
+        return
+
+    if args.logs:
+        pull_logs(cfg)
+        return
 
     if args.pull:
         pull_from_kaggle(cfg)

@@ -78,3 +78,7 @@ desktop.ini
 # Kaggle kernel outputs
 kaggle/working/
 kaggle/output/
+kaggle/eda/runs/*
+!kaggle/eda/runs/README.md
+!kaggle/eda/runs/.gitkeep
+rsna_knee_repo/

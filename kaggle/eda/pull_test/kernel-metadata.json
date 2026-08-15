@@ -2,7 +2,7 @@
   "id": "simonhochwebde/rsna-knee-eda-phase-0",
   "id_no": 130775997,
   "title": "RSNA Knee EDA Phase 0",
-  "code_file": "eda_phase0.ipynb",
+  "code_file": "rsna-knee-eda-phase-0.ipynb",
   "language": "python",
   "kernel_type": "notebook",
   "is_private": true,

@@ -6,4 +6,5 @@
 |-----------|----------|
 | `notebooks/02_eda_phase0.ipynb` | `python scripts/sync_kaggle_eda.py --push` |
 
-Kaggle settings live in `configs/kaggle_eda.yaml`.
+Kaggle settings: `configs/kaggle_eda.yaml`  
+Full workflow (push, pull runs, Cursor loop): **[docs/KAGGLE_NOTEBOOK_SYNC.md](../../docs/KAGGLE_NOTEBOOK_SYNC.md)**
