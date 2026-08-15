@@ -27,6 +27,15 @@ def test_kaggle_candidates_include_competitions_subfolder() -> None:
     assert Path("/kaggle/input/rsna-knee-abnormality-detection") in candidates
 
 
+def test_is_kaggle_kernel_detects_run_type(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("KAGGLE_KERNEL_RUN_TYPE", raising=False)
+    monkeypatch.delenv("KAGGLE_URL_BASE", raising=False)
+    assert paths.is_kaggle_kernel() is False
+
+    monkeypatch.setenv("KAGGLE_KERNEL_RUN_TYPE", "Interactive")
+    assert paths.is_kaggle_kernel() is True
+
+
 def test_default_data_root_on_kaggle_uses_competitions_layout(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -35,7 +44,7 @@ def test_default_data_root_on_kaggle_uses_competitions_layout(
     competitions_root.mkdir(parents=True)
     (competitions_root / TRAIN_CSV).write_text("StudyInstanceUID\n", encoding="utf-8")
 
-    monkeypatch.setenv("KAGGLE_KERNEL_RUN", "True")
+    monkeypatch.setenv("KAGGLE_KERNEL_RUN_TYPE", "Interactive")
     monkeypatch.setattr(
         paths,
         "_kaggle_data_candidates",

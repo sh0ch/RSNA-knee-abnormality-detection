@@ -19,12 +19,17 @@ from rsna_knee.constants import (
 
 def is_kaggle_kernel() -> bool:
     """Return True when running inside a Kaggle notebook/kernel."""
-    return os.environ.get("KAGGLE_KERNEL_RUN") == "True"
+    if os.environ.get("KAGGLE_KERNEL_RUN_TYPE") is not None:
+        return True
+    if "KAGGLE_URL_BASE" in os.environ:
+        return True
+    # Filesystem fallback when env vars are unavailable (e.g. some batch runs).
+    return Path("/kaggle/working").is_dir() and Path("/kaggle/input").is_dir()
 
 
 def is_kaggle_notebook() -> bool:
     """Return True when any Kaggle notebook environment is detected."""
-    return is_kaggle_kernel() or "KAGGLE_URL_BASE" in os.environ
+    return is_kaggle_kernel()
 
 
 def project_root() -> Path:
