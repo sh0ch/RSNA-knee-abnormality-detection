@@ -5,7 +5,7 @@ Living notes from EDA, experiments, and competition learning.
 
 | Phase | Status | Doc / artifact |
 |-------|--------|----------------|
-| 0 — EDA | Done (2026-08-15) | `notebooks/02_eda_phase0.ipynb` |
+| 0 — EDA | In progress (2026-08-15) | `notebooks/02_eda_phase0.ipynb` |
 | 1 — Image baseline | Not started | — |
 | 2 — Reports / semi-supervised | Not started | — |
 
@@ -20,9 +20,9 @@ Verified on Kaggle with full competition data (`/kaggle/input/competitions/rsna-
 | Split | Studies | Series |
 |-------|---------|--------|
 | Train | 4,407 | 24,371 |
-| Test | *(run EDA for current count)* | *(run EDA)* |
+| Test | 3 | 15 |
 
-~**5.5 series per study** on average (24,371 / 4,407).
+~**5.5 series per study** on average (24,371 / 4,407). Test sample: **5 series per study** (15 / 3).
 
 ### Partial explicit labels (critical)
 
@@ -61,11 +61,25 @@ Normalized in code via `rsna_knee.data.schema` → snake_case (`acl_tear`, `flui
 - Multilingual (e.g. Spanish, German, English observed in sample rows).
 - Reports can contain newlines; use `low_memory=False` when reading CSV.
 
-### DICOM (spot-check)
+### DICOM (spot-check, Kaggle 2026-08-15)
 
 - Path: `train_series/{StudyInstanceUID}/{SeriesInstanceUID}/*.dcm`
-- Example series: **22 slices**, files readable via `pydicom`.
-- Slice count, resolution, and orientation vary by site (full distribution: run EDA §7 on Kaggle).
+- Example series: **22 slices**, **512×512**, `Modality=MR`, `PixelSpacing≈0.33 mm`, `SliceThickness≈3.4 mm`
+- Raw `pixel_array`: `uint16` (example slice min=0, max=843, mean≈156); `RescaleSlope` / `RescaleIntercept` present but **not applied** in raw EDA cells
+- Files named by **SOP Instance UID**, not slice index
+
+#### Slice ordering (critical)
+
+**Do not sort DICOM files by filename.** On Kaggle, alphabetical filename order scrambles anatomy (e.g. InstanceNumbers 5, 10, 3, 2, 9 for the first five files).
+
+Sort slices before viewing or stacking:
+
+1. **`InstanceNumber`** (primary)
+2. **`ImagePositionPatient[2]`** (fallback)
+
+After sorting, example series runs InstanceNumber **1 → 22** contiguously. Use `rsna_knee.data.dicom_io.load_series_volume` in pipelines (same sort logic).
+
+Slice count, resolution, and orientation vary by site — full distribution still TBD (sample one series only).
 
 ### Phase 1 decisions (from Phase 0)
 
@@ -75,6 +89,7 @@ Normalized in code via `rsna_knee.data.schema` → snake_case (`acl_tear`, `flui
 | Loss | BCE with **NaN mask** | Do not treat missing labels as 0 |
 | Series selection | Fluid-sensitive first | Competition + EDA convention |
 | Volume shape (start) | `[32, 256, 256]` | See `configs/default.yaml` |
+| DICOM slice order | Sort by `InstanceNumber` | Filename order is not slice order |
 | Text at inference | **No** | Rules / test pipeline |
 | CV | Study-level k-fold on labeled set | n=58 → high score variance expected |
 
@@ -111,4 +126,5 @@ Normalized in code via `rsna_knee.data.schema` → snake_case (`acl_tear`, `flui
 
 | Date | Update |
 |------|--------|
-| 2026-08-15 | Phase 0 complete: partial labels (58/4407), schema mapping, paths, DICOM spot-check |
+| 2026-08-15 | Phase 0: partial labels (58/4407), schema mapping, paths, DICOM spot-check |
+| 2026-08-15 | Kaggle v7: test counts (3/15), 512×512 MR, **filename ≠ slice order** — sort by InstanceNumber |

@@ -27,15 +27,50 @@ Older notebooks may still see `/kaggle/input/rsna-knee-abnormality-detection/` w
 - Metadata is stripped to an allowlisted set of 86 tags.
 - Intensities, orientation, and resolution vary across sites.
 
-## Local sample data
+## Local data (two options)
 
-This repo does **not** include competition data. Generate a tiny synthetic copy for pipeline tests:
+### `data/kaggle/` — official CSVs (recommended for tabular EDA)
+
+Copy the five competition **CSV files** into `data/kaggle/` (no DICOM). See [data/kaggle/README.md](../data/kaggle/README.md).
+
+| File | Rows (full competition) |
+|------|-------------------------|
+| `train.csv` | 4,407 |
+| `train_series.csv` | 24,371 |
+| `test.csv` | 3 (public sample) |
+| `test_series.csv` | 15 |
+| `sample_submission.csv` | 3 |
+
+Use real reports, labels, and series metadata locally without a Kaggle session:
+
+```bash
+# PowerShell
+$env:RSNA_DATA_ROOT = "data/kaggle"
+```
+
+Or in `.env`: `RSNA_DATA_ROOT=data/kaggle`
+
+CSV contents are **gitignored** — do not commit them.
+
+### `data/sample/` — synthetic CSV + DICOM (pipeline tests)
+
+Generate a tiny fake dataset for unit tests and DICOM I/O:
 
 ```bash
 python scripts/create_sample_data.py
 ```
 
-Output goes to `data/sample/` by default (~few MB). Set `RSNA_DATA_ROOT` to point elsewhere if needed.
+Output goes to `data/sample/` by default (~few MB). Includes miniature `train_series/` DICOM folders.
+
+### Choosing a local root
+
+| Goal | Set `RSNA_DATA_ROOT` to |
+|------|-------------------------|
+| Explore real reports & CSV schema | `data/kaggle` |
+| Test DICOM loading / transforms | `data/sample` (after `create_sample_data.py`) |
+| Full MRI EDA | Kaggle kernel (DICOM too large for git) |
+
+If unset, `default_data_root()` uses `data/sample/` when not on Kaggle.
 
 ## Recommended preprocessing (starting point)
 

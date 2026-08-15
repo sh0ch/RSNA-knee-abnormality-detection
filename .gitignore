@@ -58,6 +58,11 @@ data/interim/
 !data/sample/README.md
 data/sample/
 
+# Local competition CSV copy (tabular only — see data/kaggle/README.md)
+data/kaggle/*
+!data/kaggle/README.md
+!data/kaggle/.gitkeep
+
 # Model artifacts
 outputs/
 checkpoints/

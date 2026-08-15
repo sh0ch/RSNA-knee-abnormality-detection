@@ -36,6 +36,7 @@ ruff check src tests scripts
 
 ```
 ├── configs/           # YAML experiment configs (default, kaggle)
+├── data/kaggle/       # Optional local copy of competition CSVs (gitignored contents)
 ├── data/sample/       # Generated synthetic data (gitignored contents)
 ├── docs/              # Competition and workflow documentation
 ├── kaggle/kernels/    # Notebook templates for Kaggle
@@ -60,7 +61,7 @@ ruff check src tests scripts
 
 ## Workflow
 
-1. Prototype DICOM loading / transforms locally with `data/sample/`.
+1. Explore real CSVs/reports locally with `data/kaggle/` (`RSNA_DATA_ROOT=data/kaggle`), or prototype DICOM with `data/sample/`.
 2. Move stable code into `src/rsna_knee/`.
 3. Copy or sync `kaggle/kernels/train_template.ipynb` to Kaggle.
 4. Add competition data source in notebook settings.

@@ -33,7 +33,7 @@ When writing or reviewing code for this repo, enforce Kaggle/RSNA rules:
 
 ## Local vs Kaggle
 
-- **Local:** `data/sample/` synthetic data only — do not download full competition data.
+- **Local:** `data/sample/` for synthetic DICOM tests; `data/kaggle/` for official **CSVs only** (gitignored). Do not download or commit full DICOM competition data.
 - **Kaggle:** full data at `/kaggle/input/rsna-knee-abnormality-detection`.
 - Branch on `is_kaggle_kernel()` when environment-specific behavior is needed.
 
