@@ -2,16 +2,23 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 import pandas as pd
+from tqdm.auto import tqdm
 
 from rsna_knee.constants import REPORT_COL, STUDY_ID_COL, TARGET_LABELS
 from rsna_knee.data.schema import labels_present_mask, load_train_table
-from rsna_knee.reports.llm import LLMLabeler
+from rsna_knee.reports.llm import (
+    DEFAULT_CONFIRM_LABELS,
+    LLMLabeler,
+    LLMLabelResult,
+    format_hybrid_match_debug,
+)
 from rsna_knee.reports.rules import RuleLabeler, RuleLabelResult
 
 CONF_SUFFIX = "_conf"
@@ -28,7 +35,11 @@ class HybridLabelResult:
 
 class HybridLabeler:
     """
-    Hybrid labeler: rules first, LLM for ambiguous labels, ground truth for labeled.
+    Rules first; LLM confirms low-precision rule-positives.
+
+    Confirmed positives keep the LLM confidence. Vetoes become label=0 with
+    confidence=0 (masked in training) so a wrong veto is not a hard negative.
+    High-precision rule hits (fracture, Baker, effusion, …) are not sent to the LLM.
     """
 
     def __init__(
@@ -37,10 +48,42 @@ class HybridLabeler:
         rule_labeler: RuleLabeler | None = None,
         llm_labeler: LLMLabeler | None = None,
         route_threshold: float = 0.7,
+        confirm_labels: Sequence[str] | None = None,
+        fill_ambiguous: bool = False,
+        verbose: bool = False,
+        debug_max: int | None = None,
     ) -> None:
         self.rule_labeler = rule_labeler or RuleLabeler(route_threshold=route_threshold)
-        self.llm_labeler = llm_labeler or LLMLabeler()
+        self.llm_labeler = llm_labeler if llm_labeler is not None else LLMLabeler()
         self.route_threshold = route_threshold
+        self.confirm_labels = list(
+            confirm_labels if confirm_labels is not None else DEFAULT_CONFIRM_LABELS
+        )
+        self.fill_ambiguous = fill_ambiguous
+        self.verbose = verbose
+        self.debug_max = debug_max
+        self._debug_calls = 0
+        if verbose:
+            setattr(self.llm_labeler, "verbose", True)
+            if debug_max is not None:
+                setattr(self.llm_labeler, "debug_max", debug_max)
+        self._confirm_idx = [
+            TARGET_LABELS.index(name)
+            for name in self.confirm_labels
+            if name in TARGET_LABELS
+        ]
+
+    def _llm_ready(self) -> bool:
+        return bool(getattr(self.llm_labeler, "is_available", lambda: False)())
+
+    def _route_indices(self, rules: RuleLabelResult) -> list[int]:
+        routed: set[int] = set()
+        for i in self._confirm_idx:
+            if float(rules.labels[i]) >= 0.5:
+                routed.add(i)
+        if self.fill_ambiguous:
+            routed.update(int(i) for i in np.where(rules.ambiguous_mask)[0])
+        return sorted(routed)
 
     def label_report(
         self,
@@ -62,17 +105,41 @@ class HybridLabeler:
         rules: RuleLabelResult = self.rule_labeler.label_report(report)
         labels = rules.labels.copy()
         confidence = rules.confidence.copy()
-        sources = list(rules.sources)
         label_source = "rules"
 
-        ambiguous_idx = np.where(rules.ambiguous_mask)[0].tolist()
-        if ambiguous_idx and self.llm_labeler is not None:
-            llm = self.llm_labeler.label_labels_only(report, ambiguous_idx)
-            labels[ambiguous_idx] = llm.labels[ambiguous_idx]
-            confidence[ambiguous_idx] = llm.confidence[ambiguous_idx]
-            for i in ambiguous_idx:
-                sources[i] = "llm"
+        routed = self._route_indices(rules)
+        if routed and self._llm_ready():
+            llm: LLMLabelResult = self.llm_labeler.label_labels_only(report, routed)
+            decisions: list[tuple[str, int, int, str]] = []
+            for i in routed:
+                name = TARGET_LABELS[i]
+                rule_positive = float(rules.labels[i]) >= 0.5
+                llm_positive = float(llm.labels[i]) >= 0.5
+                if rule_positive and llm_positive:
+                    labels[i] = 1.0
+                    confidence[i] = float(llm.confidence[i])
+                    action = "confirm (keep 1)"
+                elif rule_positive and not llm_positive:
+                    labels[i] = 0.0
+                    confidence[i] = 0.0
+                    action = "veto (label=0, conf=0 masked)"
+                elif self.fill_ambiguous and not rule_positive:
+                    labels[i] = float(llm.labels[i])
+                    confidence[i] = float(llm.confidence[i]) if llm_positive else 0.0
+                    action = "fill_ambiguous"
+                else:
+                    action = "unchanged"
+                decisions.append((name, int(rule_positive), int(llm_positive), action))
             label_source = "hybrid"
+            if self.verbose:
+                self._debug_calls += 1
+                if self.debug_max is None or self._debug_calls <= self.debug_max:
+                    print(
+                        format_hybrid_match_debug(
+                            call_index=self._debug_calls, decisions=decisions
+                        ),
+                        flush=True,
+                    )
 
         return HybridLabelResult(
             study_uid="",
@@ -86,7 +153,7 @@ class HybridLabeler:
         has_labels = labels_present_mask(train_df)
         rows: list[dict[str, Any]] = []
 
-        for idx, row in train_df.iterrows():
+        for idx, row in tqdm(train_df.iterrows(), total=len(train_df), desc="pseudo-labels"):
             study_uid = str(row[STUDY_ID_COL])
             report = str(row.get(REPORT_COL, ""))
             gt = row[TARGET_LABELS].to_numpy(dtype=np.float32) if has_labels.loc[idx] else None
@@ -109,7 +176,12 @@ def generate_pseudo_labels(
     *,
     output_path: Path | str | None = None,
     llm_model_path: Path | str | None = None,
+    llm_model_id: str | None = None,
     route_threshold: float = 0.7,
+    confirm_labels: Sequence[str] | None = None,
+    fill_ambiguous: bool = False,
+    require_llm: bool = False,
+    llm_labeler: LLMLabeler | None = None,
 ) -> pd.DataFrame:
     """
     Generate pseudo-label artifact for all training studies.
@@ -117,8 +189,17 @@ def generate_pseudo_labels(
     Writes parquet or CSV to ``output_path`` when provided.
     """
     train = load_train_table(data_root)
-    llm = LLMLabeler(model_path=llm_model_path) if llm_model_path else LLMLabeler()
-    labeler = HybridLabeler(llm_labeler=llm, route_threshold=route_threshold)
+    llm = llm_labeler
+    if llm is None:
+        llm = LLMLabeler(model_path=llm_model_path, model_id=llm_model_id)
+    if require_llm:
+        llm.warmup()
+    labeler = HybridLabeler(
+        llm_labeler=llm,
+        route_threshold=route_threshold,
+        confirm_labels=confirm_labels,
+        fill_ambiguous=fill_ambiguous,
+    )
     df = labeler.label_dataframe(train)
 
     if output_path is not None:

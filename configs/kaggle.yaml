@@ -5,7 +5,7 @@ seed: 42
 
 data:
   root: null  # resolved by default_data_root() on Kaggle
-  num_workers: 0  # volumes are cached; workers only add CPU overhead
+  num_workers: 0  # n=58 fits in RAM; workers only add overhead when cpu-cache is on
   volume_shape: [16, 256, 256]
   max_series: 3
 

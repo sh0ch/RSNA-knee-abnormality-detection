@@ -9,28 +9,51 @@ import numpy as np
 
 from rsna_knee.constants import TARGET_LABELS
 
+# Ligament injury language — do not match a bare ACL/MCL mention.
+_LIG_INJURY = (
+    r"(?:tear|torn|rupture|ruptured|injury|sprain|disruption|deficient|"
+    r"riss|ruptur|teilruptur|verletzung|rotura|desgarro)"
+)
+
+# Degenerative / cartilage language for OA (pair with a compartment).
+_OA_FINDING = (
+    r"(?:osteoarthr|\boa\b|arthrose|arthrosis|gonarthrose|gonarthrosis|"
+    r"chondrosis|chondropath|chondromalacia|"
+    r"cartilage (?:loss|wear|thinning|damage|degeneration)|"
+    r"degenerative (?:change|joint|chondral)|"
+    r"knorpelschaden|knorpellaesion|knorpellasion|"
+    r"artrosis|gonartrosis|condropat)"
+)
+
 # Per-label positive keyword patterns (case-insensitive).
+# Precision-first: ACL/MCL require injury language; OA/synovitis use report phrasing
+# rather than anatomy-only tokens. Fracture / Baker / effusion / menisci stay conservative.
 _POSITIVE_PATTERNS: dict[str, list[str]] = {
     "acl_tear": [
-        r"\bacl\b",
-        r"anterior cruciate",
-        r"acl tear",
-        r"acl rupture",
-        r"acl injury",
-        r"kreuzband",
-        r"vorderes kreuzband",
-        r"ligamento cruzado anterior",
-        r"\blca\b",
+        rf"\bacl\b.{{0,40}}\b{_LIG_INJURY}\b",
+        rf"\b{_LIG_INJURY}\b.{{0,40}}\bacl\b",
+        rf"anterior cruciate.{{0,40}}\b{_LIG_INJURY}\b",
+        rf"\b{_LIG_INJURY}\b.{{0,40}}anterior cruciate",
+        r"kreuzbandriss",
+        r"kreuzbandruptur",
+        r"vkb[- ]?(?:riss|ruptur|verletzung)",
+        rf"vorderes? kreuzband.{{0,40}}\b{_LIG_INJURY}\b",
+        rf"\b{_LIG_INJURY}\b.{{0,40}}kreuzband",
+        rf"ligamento cruzado anterior.{{0,40}}\b{_LIG_INJURY}\b",
+        rf"\blca\b.{{0,40}}\b{_LIG_INJURY}\b",
+        rf"\b{_LIG_INJURY}\b.{{0,40}}\blca\b",
     ],
     "mcl_tear": [
-        r"\bmcl\b",
-        r"medial collateral",
-        r"mcl tear",
-        r"mcl injury",
-        r"mediales kollateral",
-        r"innenseitenband",
-        r"ligamento colateral medial",
-        r"\blcm\b",
+        rf"\bmcl\b.{{0,40}}\b{_LIG_INJURY}\b",
+        rf"\b{_LIG_INJURY}\b.{{0,40}}\bmcl\b",
+        rf"medial collateral.{{0,40}}\b{_LIG_INJURY}\b",
+        rf"\b{_LIG_INJURY}\b.{{0,40}}medial collateral",
+        r"innenband(?:riss|ruptur)",
+        rf"innenseitenband.{{0,30}}\b{_LIG_INJURY}\b",
+        rf"mediales kollateral.{{0,30}}\b{_LIG_INJURY}\b",
+        rf"ligamento colateral medial.{{0,40}}\b{_LIG_INJURY}\b",
+        rf"\blcm\b.{{0,40}}\b{_LIG_INJURY}\b",
+        rf"\b{_LIG_INJURY}\b.{{0,40}}\blcm\b",
     ],
     "medial_meniscus_injury": [
         r"medial meniscus",
@@ -54,28 +77,48 @@ _POSITIVE_PATTERNS: dict[str, list[str]] = {
     "medial_osteoarthritis": [
         r"medial osteoarthritis",
         r"medial oa\b",
-        r"medial compartment.{0,20}arthr",
+        rf"medial compartment.{{0,40}}{_OA_FINDING}",
+        rf"medial.{{0,30}}{_OA_FINDING}",
+        rf"{_OA_FINDING}.{{0,30}}medial",
         r"mediale arthrose",
-        r"arthrose.{0,20}medial",
-        r"osteoarthritis.{0,20}medial",
+        r"varus.{0,25}(?:arthr|\boa\b|gonarthrose)",
+        r"medial (?:femoral|tibial).{0,25}cartilage",
+        r"compartimento medial.{0,30}(?:artrosis|condropat|cartilago)",
+        r"tricompartmental.{0,20}(?:oa\b|arthr|chondr)",
+        r"tri-compartmental.{0,20}(?:oa\b|arthr|chondr)",
+        r"pancompartmental.{0,20}(?:oa\b|arthr|chondr)",
     ],
     "lateral_osteoarthritis": [
         r"lateral osteoarthritis",
         r"lateral oa\b",
-        r"lateral compartment.{0,20}arthr",
+        rf"lateral compartment.{{0,40}}{_OA_FINDING}",
+        rf"lateral.{{0,30}}{_OA_FINDING}",
+        rf"{_OA_FINDING}.{{0,30}}lateral",
         r"laterale arthrose",
-        r"arthrose.{0,20}lateral",
-        r"osteoarthritis.{0,20}lateral",
+        r"valgus.{0,25}(?:arthr|\boa\b|gonarthrose)",
+        r"lateral (?:femoral|tibial).{0,25}cartilage",
+        r"compartimento lateral.{0,30}(?:artrosis|condropat|cartilago)",
+        r"tricompartmental.{0,20}(?:oa\b|arthr|chondr)",
+        r"tri-compartmental.{0,20}(?:oa\b|arthr|chondr)",
+        r"pancompartmental.{0,20}(?:oa\b|arthr|chondr)",
     ],
     "patellofemoral_osteoarthritis": [
-        r"patellofemoral",
-        r"pf oa\b",
-        r"retropatellar",
-        r"patello-femoral",
         r"patellofemoral osteoarthritis",
-        r"chondromalacia",
-        r"retropatellare arthrose",
+        rf"patello-?femoral.{{0,30}}{_OA_FINDING}",
+        rf"{_OA_FINDING}.{{0,30}}patello-?femoral",
+        r"pf oa\b",
+        r"\bpfja\b",
+        r"retropatellar(?:e)? arthrose",
+        r"retropatellar.{0,20}(?:chondromalacia|chondrosis|arthrose)",
+        r"chondromalacia patella",
+        r"patellar chondromalacia",
+        r"patellar.{0,20}(?:cartilage (?:loss|wear|thinning)|chondrosis)",
+        r"trochlear.{0,20}(?:cartilage (?:loss|wear|thinning)|chondrosis|chondromalacia)",
+        r"femoropatellar(?:e)? arthrose",
         r"artrosis patelofemoral",
+        r"tricompartmental.{0,20}(?:oa\b|arthr|chondr)",
+        r"tri-compartmental.{0,20}(?:oa\b|arthr|chondr)",
+        r"pancompartmental.{0,20}(?:oa\b|arthr|chondr)",
     ],
     "joint_effusion": [
         r"\beffusion\b",
@@ -93,8 +136,15 @@ _POSITIVE_PATTERNS: dict[str, list[str]] = {
         r"synovial thickening",
         r"synoviale hyperplasie",
         r"synovial hypertrophy",
-        r"synovitis",
+        r"synovial proliferation",
+        r"hoffa(?:'?s)? synovitis",
+        r"infrapatellar synovitis",
+        r"reactive synovitis",
         r"synovitis activa",
+        r"synoviale verdickung",
+        r"synoviale reizung",
+        r"verdickung der synovia",
+        r"\bsinovitis\b",
     ],
     "bakers_cyst": [
         r"baker'?s cyst",
@@ -140,6 +190,15 @@ _NEGATION_PATTERNS: list[str] = [
     r"\bausencia de\b",
     r"\bno evidence of\b",
     r"\bunremarkable\b",
+    r"\bintact\b",
+    r"\bintakt\b",
+    r"\bregelrecht\b",
+    r"\bpreserved\b",
+    r"\bunauff(?:a|ä)llig",
+    r"kein hinweis",
+    r"ohne nachweis",
+    r"\bno tear\b",
+    r"\bnot torn\b",
 ]
 
 _AMBIGUOUS_CONFIDENCE = 0.5

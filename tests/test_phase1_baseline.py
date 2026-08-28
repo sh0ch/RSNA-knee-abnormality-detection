@@ -17,6 +17,16 @@ from rsna_knee.data.volume_prep import (
 from rsna_knee.training.loss import compute_pos_weight, masked_bce_with_logits
 
 
+def test_fold_waves() -> None:
+    pytest.importorskip("torch")
+    pytest.importorskip("torchvision")
+    from rsna_knee.training.loop import _fold_waves
+
+    assert _fold_waves(5, 2) == [[(0, 0), (1, 1)], [(2, 0), (3, 1)], [(4, 0)]]
+    assert _fold_waves(3, 1) == [[(0, 0)], [(1, 0)], [(2, 0)]]
+    assert _fold_waves(2, 2) == [[(0, 0), (1, 1)]]
+
+
 def test_sample_depth_indices() -> None:
     idx = sample_depth_indices(22, 16)
     assert len(idx) == 16

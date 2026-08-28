@@ -24,6 +24,22 @@ def test_load_series_volume(sample_data_dir: Path) -> None:
     assert volume.dtype == np.float32
 
 
+def test_load_series_volume_samples_depth(sample_data_dir: Path) -> None:
+    from rsna_knee.data.volume_prep import sample_depth_indices
+
+    index = StudyIndex(sample_data_dir)
+    study_uid = index.iter_studies()[0]
+    series_df = index.get_series_for_study(study_uid)
+    series_uid = series_df.iloc[0]["SeriesInstanceUID"]
+    path = sample_data_dir / "train_series" / study_uid / series_uid
+
+    full, _ = load_series_volume(path)
+    sampled, datasets = load_series_volume(path, depth=4)
+    idx = sample_depth_indices(full.shape[0], 4)
+    np.testing.assert_allclose(sampled, full[idx])
+    assert len(datasets) == 4
+
+
 def test_normalize_volume() -> None:
     vol = np.random.randn(10, 32, 32).astype(np.float32) * 100
     normed = normalize_volume(vol)

@@ -13,5 +13,8 @@
   ],
   "competition_sources": [
     "rsna-knee-abnormality-detection"
+  ],
+  "model_sources": [
+    "Qwen/Qwen2.5-1.5B-Instruct"
   ]
 }

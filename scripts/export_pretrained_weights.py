@@ -2,8 +2,11 @@
 """
 Export pretrained ConvNeXt-Tiny weights for offline Kaggle training.
 
+Does not require local torch: ImageNet weights are fetched from the official
+torchvision CDN (same file as ConvNeXt_Tiny_Weights.IMAGENET1K_V1).
+
 Variants:
-  imagenet   — torchvision ImageNet (default)
+  imagenet    — torchvision ImageNet (default)
   radimagenet — copy user-provided RadImageNet checkpoint into data/pretrained/
 
 Usage:
@@ -16,28 +19,49 @@ from __future__ import annotations
 
 import argparse
 import shutil
+import urllib.request
 from pathlib import Path
 
-import torch
-from torchvision.models import ConvNeXt_Tiny_Weights, convnext_tiny
-
 from rsna_knee.models.weights import (
-    CONVNEXT_TINY_FILENAME,
     PRETRAINED_WEIGHT_REGISTRY,
-    RAD_IMAGENET_CONVNEXT_TINY_FILENAME,
     pretrained_weights_dir,
 )
 from rsna_knee.utils.paths import project_root
 
+# torchvision.models.ConvNeXt_Tiny_Weights.IMAGENET1K_V1
+# https://github.com/pytorch/vision/blob/main/torchvision/models/convnext.py
+_IMAGENET_URL = "https://download.pytorch.org/models/convnext_tiny-983f1562.pth"
+_EXPECTED_MIN_BYTES = 80 * 1024 * 1024  # official file is ~109 MB
+
 
 def export_convnext_tiny_imagenet(output: Path) -> Path:
     output.parent.mkdir(parents=True, exist_ok=True)
-    print("Downloading ImageNet ConvNeXt-Tiny weights via torchvision…")
-    model = convnext_tiny(weights=ConvNeXt_Tiny_Weights.IMAGENET1K_V1)
-    state = model.state_dict()
-    torch.save(state, output)
+    print(f"Downloading ImageNet ConvNeXt-Tiny from {_IMAGENET_URL}")
+
+    def _progress(block: int, block_size: int, total: int) -> None:
+        if total <= 0:
+            return
+        done = min(block * block_size, total)
+        pct = 100.0 * done / total
+        print(f"\r  {done / (1024 * 1024):.1f} / {total / (1024 * 1024):.1f} MB ({pct:.0f}%)", end="")
+
+    tmp = output.with_suffix(output.suffix + ".part")
+    try:
+        urllib.request.urlretrieve(_IMAGENET_URL, tmp, reporthook=_progress)
+        print()
+        size = tmp.stat().st_size
+        if size < _EXPECTED_MIN_BYTES:
+            raise RuntimeError(
+                f"Download too small ({size} bytes); expected ~109 MB. Check the URL / network."
+            )
+        tmp.replace(output)
+    except Exception:
+        if tmp.exists():
+            tmp.unlink()
+        raise
+
     size_mb = output.stat().st_size / (1024 * 1024)
-    print(f"Wrote {output} ({size_mb:.1f} MB, {len(state)} tensors)")
+    print(f"Wrote {output} ({size_mb:.1f} MB)")
     print(
         "License note: torchvision ConvNeXt-Tiny ImageNet weights — BSD-3; "
         "document for competition pretrained-weight rules."
@@ -93,10 +117,7 @@ def main() -> None:
             raise SystemExit("--source is required for radimagenet variant")
         export_radimagenet_copy(args.source, out)
 
-    print(
-        "Upload to Kaggle Dataset 'rsna-knee-pretrained' and attach to train kernel "
-        f"as {filename} (internet OFF)."
-    )
+    print(f"Next: python scripts/publish_pretrained_weights.py  ({filename})")
 
 
 if __name__ == "__main__":

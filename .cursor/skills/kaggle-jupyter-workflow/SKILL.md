@@ -42,6 +42,7 @@ Run from repo root when preparing a scored kernel version or first-time Phase 2 
 ```bash
 python scripts/sync_code_to_jupyter.py          # or publish_code_dataset.py
 python scripts/export_pretrained_weights.py     # once, for ImageNet weights
+python scripts/publish_pretrained_weights.py
 python scripts/publish_code_dataset.py
 python scripts/push_kaggle_kernel.py phase2
 ```
@@ -52,7 +53,8 @@ python scripts/push_kaggle_kernel.py phase2
 |---------|------|--------|
 | `sync_code_to_jupyter.py` | **Daily interactive** editing in Cursor | Pushes `src/` + `configs/` to `/kaggle/working/` on a live Jupyter Server. No Dataset version bump. Requires VS Code Compatible URL in `.env` as `KAGGLE_JUPYTER_URL`. |
 | `publish_code_dataset.py` | **Before Save & Run All** or when not using sync | Versions `simonhochwebde/rsna-knee-code` for offline kernels (internet OFF). Restart Jupyter session after publish if using Dataset mount. |
-| `export_pretrained_weights.py` | **Once** (or when switching variant) | Downloads ImageNet ConvNeXt-Tiny to `data/pretrained/convnext_tiny_imagenet.pth`. Upload to Kaggle Dataset `rsna-knee-pretrained`. RadImageNet: `--variant radimagenet --source /path/to/rad.pth`. |
+| `export_pretrained_weights.py` | **Once** (or when switching variant) | Downloads ImageNet ConvNeXt-Tiny to `data/pretrained/convnext_tiny_imagenet.pth`. Then `publish_pretrained_weights.py`. RadImageNet: `--variant radimagenet --source /path/to/rad.pth`. |
+| `publish_pretrained_weights.py` | After export | Versions Dataset `simonhochwebde/rsna-knee-pretrained`. Restart Jupyter so the mount updates. |
 | `push_kaggle_kernel.py <target>` | Before submit | Copies source notebook → `kaggle/{eda,train,phase2}/`, pushes to Kaggle API. Targets: `eda`, `train`, `phase2`. |
 
 ### sync vs publish
@@ -111,6 +113,8 @@ Restart the Jupyter Server session.
 - Config: `configs/kaggle_phase2.yaml`
 - Notebook: `notebooks/04_phase2_pseudo_labels.ipynb`
 - Expects ImageNet weights (`allow_random_init: false`) → attach `rsna-knee-pretrained`.
+- LLM confirmer (section 2b): attach Hugging Face model **Qwen/Qwen2.5-1.5B-Instruct** via Add Input → Models. Restart Jupyter after attaching. Loader uses `/kaggle/input/models/...` — do not download from huggingface.co.
+- Pseudo-labels: `/kaggle/working/outputs/pseudo_labels.csv` this session. Pull locally with `python scripts/pull_pseudo_labels.py`, later upload with `python scripts/publish_pseudo_labels.py`. Set `FORCE_RELABEL = False` to skip regeneration.
 - Outputs: `/kaggle/working/outputs/pseudo_labels.csv`, `/kaggle/working/submission.csv`
 - Compare backbones: same pseudo-labels, swap `model.pretrained_weights` / `pretrained_variant` in config.
 
@@ -118,11 +122,10 @@ Restart the Jupyter Server session.
 
 ```bash
 python scripts/export_pretrained_weights.py
-python scripts/export_pretrained_weights.py --variant imagenet
-python scripts/export_pretrained_weights.py --variant radimagenet --source /path/to/rad.pth
+python scripts/publish_pretrained_weights.py
 ```
 
-Upload resulting `.pth` to Dataset `rsna-knee-pretrained`. Document license in `docs/PROJECT_LOG.md`.
+Document license in `docs/PROJECT_LOG.md`.
 
 ---
 

@@ -4,7 +4,7 @@
 # Publish package: python scripts/publish_code_dataset.py
 # Submit push:     python scripts/push_kaggle_kernel.py phase2
 #
-# Attach: competition data + rsna-knee-code + rsna-knee-pretrained (ImageNet weights)
+# Attach: competition + rsna-knee-code + rsna-knee-pretrained + HF model Qwen/Qwen2.5-1.5B-Instruct
 
 kernel_id: simonhochwebde/rsna-knee-phase2-pseudo
 kernel_title: RSNA Knee Phase2 Pseudo Labels

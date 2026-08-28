@@ -1,5 +1,9 @@
 """Training utilities."""
 
+from __future__ import annotations
+
+from typing import Any
+
 from rsna_knee.training.loss import compute_pos_weight, masked_bce_with_logits
 from rsna_knee.training.metrics import macro_roc_auc
 
@@ -10,18 +14,31 @@ __all__ = [
     "predict_test_ensemble",
     "prevalence_baseline_predictions",
     "run_kfold_training",
+    "run_phase2_training",
 ]
 
 
-def __getattr__(name: str):
-    """Lazy-import torch-dependent training loop helpers."""
-    if name in {
-        "predict_test_ensemble",
-        "prevalence_baseline_predictions",
-        "run_kfold_training",
-        "run_phase2_training",
-    }:
-        from rsna_knee.training import loop as _loop
+def run_kfold_training(*args: Any, **kwargs: Any) -> Any:
+    from rsna_knee.training.loop import run_kfold_training as _fn
 
-        return getattr(_loop, name)
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    return _fn(*args, **kwargs)
+
+
+def run_phase2_training(*args: Any, **kwargs: Any) -> Any:
+    from rsna_knee.training.loop import run_kfold_training as _kfold
+    from rsna_knee.training import loop as _loop
+
+    fn = getattr(_loop, "run_phase2_training", _kfold)
+    return fn(*args, **kwargs)
+
+
+def predict_test_ensemble(*args: Any, **kwargs: Any) -> Any:
+    from rsna_knee.training.loop import predict_test_ensemble as _fn
+
+    return _fn(*args, **kwargs)
+
+
+def prevalence_baseline_predictions(*args: Any, **kwargs: Any) -> Any:
+    from rsna_knee.training.loop import prevalence_baseline_predictions as _fn
+
+    return _fn(*args, **kwargs)

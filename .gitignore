@@ -67,8 +67,13 @@ data/kaggle/*
 data/pretrained/
 !data/pretrained/.gitkeep
 
+# Qwen2.5 instruct weights for offline Kaggle (see scripts/export_llm_weights.py)
+data/llm/
+!data/llm/.gitkeep
+
 # Model artifacts
 outputs/
+kaggle/datasets/rsna-knee-pseudo-labels/
 checkpoints/
 weights/
 *.pt
@@ -95,6 +100,7 @@ kaggle/eda/pull_test/
 kaggle/eda/eda_phase0.ipynb
 kaggle/train/train.ipynb
 kaggle/datasets/rsna-knee-code/
+kaggle/datasets/rsna-knee-llm/
 rsna_knee_repo/
 
 # Imported executed runs (local only)

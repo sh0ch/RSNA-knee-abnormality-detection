@@ -152,7 +152,7 @@ Slice count, resolution, and orientation vary by site — full distribution stil
 
 ### What we built
 
-- **Hybrid labeler:** `rsna_knee.reports` — keyword rules (EN/DE/ES) + optional LLM for ambiguous cases
+- **Hybrid labeler:** `rsna_knee.reports` — keyword rules (EN/DE/ES) + **Qwen2.5-1.5B-Instruct** confirmer (Apache-2.0; Kaggle HF model, not a Dataset upload) for ACL/MCL/OA/synovitis rule-positives. Attach via Add Input → Models; do not download from huggingface.co on the kernel.
 - **Report EDA:** language heuristics, length stats, keyword hit rates on labeled studies
 - **Pseudo-label training:** extended `KneeStudyDataset` + confidence-weighted masked BCE
 - **OOF on 58 labeled** while training on all 4,407 studies (`eval_labeled_only`)

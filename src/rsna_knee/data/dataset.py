@@ -177,7 +177,7 @@ class KneeStudyDataset:
         min_confidence: float = 0.7,
         volume_shape: tuple[int, int, int] = (16, 256, 256),
         max_series: int = 3,
-        cache: bool = True,
+        cache: bool = False,
         require_dicom: bool = True,
     ) -> None:
         if split not in {"train", "test"}:
@@ -211,10 +211,41 @@ class KneeStudyDataset:
             if study_ids is None:
                 study_ids = self.studies[STUDY_ID_COL].tolist()
 
-        self.study_ids = list(study_ids)
+        self.study_ids = [str(uid) for uid in study_ids]
+        self._study_pos = {
+            str(uid): i for i, uid in enumerate(self.studies[STUDY_ID_COL].astype(str))
+        }
+        self._series_by_study: dict[str, pd.DataFrame] = {
+            str(uid): grp.reset_index(drop=True)
+            for uid, grp in self.series.groupby(
+                self.series[STUDY_ID_COL].astype(str), sort=False
+            )
+        }
+        self._empty_series = self.series.iloc[0:0]
 
     def __len__(self) -> int:
         return len(self.study_ids)
+
+    def _study_row(self, study_uid: str) -> pd.Series:
+        pos = self._study_pos.get(str(study_uid))
+        if pos is None:
+            raise KeyError(f"Unknown study: {study_uid}")
+        return self.studies.iloc[pos]
+
+    def stacked_labels(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Labels / masks / confidence for every study — no DICOM reads."""
+        n = len(self.study_ids)
+        k = len(TARGET_LABELS)
+        labels = np.zeros((n, k), dtype=np.float32)
+        masks = np.zeros((n, k), dtype=np.float32)
+        confidence = np.zeros((n, k), dtype=np.float32)
+        if self.split != "train":
+            return labels, masks, confidence
+        for i, uid in enumerate(self.study_ids):
+            labels[i], masks[i], confidence[i] = self._resolve_labels(
+                uid, self._study_row(uid)
+            )
+        return labels, masks, confidence
 
     def __getitem__(self, index: int) -> dict[str, Any]:
         study_uid = self.study_ids[index]
@@ -222,7 +253,7 @@ class KneeStudyDataset:
 
         report = ""
         if self.split == "train":
-            row = self.studies[self.studies[STUDY_ID_COL] == study_uid].iloc[0]
+            row = self._study_row(study_uid)
             labels, mask, confidence = self._resolve_labels(study_uid, row)
             report = str(row.get(REPORT_COL, ""))
         else:
@@ -241,7 +272,7 @@ class KneeStudyDataset:
 
     def _resolve_labels(self, study_uid: str, row: pd.Series) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Ground truth for labeled studies; pseudo-labels otherwise."""
-        explicit_mask = labels_present_mask(pd.DataFrame([row]))[0]
+        explicit_mask = bool(row[TARGET_LABELS].notna().any())
         if explicit_mask:
             labels, mask = _labels_and_mask(row)
             confidence = mask.copy()
@@ -267,7 +298,7 @@ class KneeStudyDataset:
             return self._cache[study_uid]
 
         series_rows = select_series_for_study(
-            self.series[self.series[STUDY_ID_COL] == study_uid],
+            self._series_by_study.get(study_uid, self._empty_series),
             max_series=self.max_series,
         )
         depth, height, width = self.volume_shape
@@ -280,7 +311,7 @@ class KneeStudyDataset:
                 if self.require_dicom:
                     raise FileNotFoundError(f"Missing series directory: {path}")
                 continue
-            volume, _ = load_series_volume(path)
+            volume, _ = load_series_volume(path, depth=depth)
             volume = normalize_volume(volume)
             tensors.append(prepare_series_tensor(volume, depth=depth, height=height, width=width))
 

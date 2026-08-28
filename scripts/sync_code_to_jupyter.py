@@ -86,7 +86,7 @@ class JupyterContents:
             url = f"{url}{sep}token={urllib.parse.quote(self.token)}"
         return url
 
-    def _request(self, method: str, api_path: str, payload: dict | None = None) -> None:
+    def _request(self, method: str, api_path: str, payload: dict | None = None) -> bytes:
         data = None if payload is None else json.dumps(payload).encode("utf-8")
         headers = {"Content-Type": "application/json", "User-Agent": "rsna-knee-sync"}
         if self.token:
@@ -98,14 +98,36 @@ class JupyterContents:
             headers=headers,
         )
         try:
-            with urllib.request.urlopen(req, context=self._ctx, timeout=60) as resp:
-                resp.read()
+            with urllib.request.urlopen(req, context=self._ctx, timeout=120) as resp:
+                return resp.read()
         except urllib.error.HTTPError as exc:
             body = exc.read().decode("utf-8", errors="replace")
             raise RuntimeError(
                 f"{method} {api_path} -> HTTP {exc.code}\n{body}\n"
                 "Is the VS Code Compatible URL still valid (session not expired)?"
             ) from exc
+
+    def get_json(self, api_path: str) -> dict:
+        raw = self._request("GET", api_path)
+        return json.loads(raw.decode("utf-8"))
+
+    def download_file(self, remote_path: str, dest: Path) -> Path:
+        payload = self.get_json(_contents_path(remote_path) + "?content=1")
+        if payload.get("type") != "file":
+            raise RuntimeError(f"{remote_path} is not a file: {payload.get('type')}")
+        content = payload.get("content")
+        if content is None:
+            raise RuntimeError(f"{remote_path} has no content (file missing or too large)")
+        dest = Path(dest)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        fmt = payload.get("format") or "text"
+        if fmt == "base64":
+            import base64
+
+            dest.write_bytes(base64.b64decode(content))
+        else:
+            dest.write_text(str(content), encoding="utf-8", newline="\n")
+        return dest
 
     def mkdir(self, path: str) -> None:
         try:

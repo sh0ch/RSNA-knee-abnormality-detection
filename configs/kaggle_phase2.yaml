@@ -3,10 +3,11 @@ seed: 42
 
 data:
   root: null
-  num_workers: 2
+  num_workers: 4
   volume_shape: [16, 256, 256]
   max_series: 3
   labeled_only: false
+  # Written by section 3; reused if present. Long-term: Dataset rsna-knee-pseudo-labels.
   pseudo_labels_path: /kaggle/working/outputs/pseudo_labels.csv
   min_confidence: 0.7
 
@@ -24,11 +25,12 @@ training:
   batch_size: 2
   learning_rate: 1.0e-4
   max_epochs: 8
-  n_folds: 5
+  n_folds: 4
   mixup_alpha: 0.4
   amp: true
   gpu_cache: false
-  data_parallel: false
+  data_parallel: false  # batch_size=2 is too small to split one model
+  parallel_folds: true  # one fold per T4; 4 folds → 2 waves
   confidence_weighted_loss: true
   eval_labeled_only: true
 
@@ -42,3 +44,15 @@ paths:
 reports:
   route_threshold: 0.7
   llm_model_path: null
+  # Attach via Add Input → Models (Kaggle HF cache — no Dataset upload).
+  # Qwen2.5-1.5B-Instruct works with stock transformers. Qwen3.5-4B needs git main.
+  llm_model_id: Qwen/Qwen2.5-1.5B-Instruct
+  confirm_labels:
+    - acl_tear
+    - mcl_tear
+    - medial_osteoarthritis
+    - lateral_osteoarthritis
+    - patellofemoral_osteoarthritis
+    - synovitis
+  fill_ambiguous: false
+  require_llm: true

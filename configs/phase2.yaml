@@ -24,7 +24,7 @@ training:
   batch_size: 2
   learning_rate: 1.0e-4
   max_epochs: 1
-  n_folds: 5
+  n_folds: 4
   mixup_alpha: 0.4
   amp: true
   gpu_cache: false
@@ -41,3 +41,13 @@ paths:
 reports:
   route_threshold: 0.7
   llm_model_path: null
+  llm_model_id: Qwen/Qwen2.5-1.5B-Instruct
+  confirm_labels:
+    - acl_tear
+    - mcl_tear
+    - medial_osteoarthritis
+    - lateral_osteoarthritis
+    - patellofemoral_osteoarthritis
+    - synovitis
+  fill_ambiguous: false
+  require_llm: false
