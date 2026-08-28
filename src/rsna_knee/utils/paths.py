@@ -53,14 +53,43 @@ def _kaggle_data_candidates() -> list[Path]:
     ]
 
 
+def _discover_kaggle_data_root() -> Path | None:
+    """Find the directory that contains train.csv under /kaggle/input."""
+    for candidate in _kaggle_data_candidates():
+        if (candidate / TRAIN_CSV).is_file():
+            return candidate
+
+    root = Path("/kaggle/input")
+    if not root.is_dir():
+        return None
+    skip = {TRAIN_SERIES_DIR, TEST_SERIES_DIR}
+    for dirpath, dirnames, filenames in os.walk(root):
+        rel = Path(dirpath).relative_to(root)
+        if TRAIN_CSV in filenames:
+            return Path(dirpath)
+        dirnames[:] = [name for name in dirnames if name not in skip]
+        if len(rel.parts) >= 4:
+            dirnames.clear()
+    return None
+
+
 def default_data_root() -> Path:
     """Resolve the competition data directory."""
     if is_kaggle_kernel():
-        for candidate in _kaggle_data_candidates():
-            if (candidate / TRAIN_CSV).is_file():
-                return candidate
-        # Prefer current Kaggle competition layout when probing fails (e.g. during import)
-        return Path("/kaggle/input/competitions") / COMPETITION_SLUG
+        found = _discover_kaggle_data_root()
+        if found is not None:
+            return found
+        listing = "(missing)"
+        inp = Path("/kaggle/input")
+        if inp.is_dir():
+            listing = ", ".join(p.name for p in sorted(inp.iterdir())) or "(empty)"
+        raise FileNotFoundError(
+            "Competition data is not mounted (no train.csv under /kaggle/input).\n"
+            f"/kaggle/input: {listing}\n"
+            "On Kaggle, open kernel simonhochwebde/rsna-knee-phase1-image, "
+            "Add Input → competition rsna-knee-abnormality-detection, "
+            "then restart Jupyter Server. Package sync cannot provide DICOMs."
+        )
 
     env_override = os.environ.get("RSNA_DATA_ROOT")
     if env_override:

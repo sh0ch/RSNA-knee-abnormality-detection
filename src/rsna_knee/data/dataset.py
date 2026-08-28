@@ -25,6 +25,7 @@ from rsna_knee.data.schema import (
     load_train_table,
 )
 from rsna_knee.data.volume_prep import prepare_series_tensor
+from rsna_knee.reports.hybrid import CONF_SUFFIX, load_pseudo_labels
 from rsna_knee.utils.paths import default_data_root, series_dir
 
 # Preferred anatomical plane order when selecting up to N series per study.
@@ -148,16 +149,21 @@ def _labels_and_mask(row: pd.Series) -> tuple[np.ndarray, np.ndarray]:
 
 class KneeStudyDataset:
     """
-    Study-level dataset for Phase 1 image baseline.
+    Study-level dataset for Phase 1/2 image baseline.
 
     Each item is one study: stacked 2.5D slices from up to ``max_series``
     fluid-sensitive series, plus multilabel targets and a NaN mask.
+
+    Phase 2: optional ``pseudo_labels_path`` supplies report-derived labels
+    for report-only studies. Explicit ground-truth labels always take priority.
 
     Returns dict with:
       - ``study_uid``: str
       - ``image``: float32 array ``[S, 3, H, W]`` (S = max_series * depth)
       - ``labels``: float32 ``[12]``
       - ``mask``: float32 ``[12]`` (1 = supervised label present)
+      - ``confidence``: float32 ``[12]`` (1.0 for ground truth; pseudo-label conf)
+      - ``report``: str (train split only, empty for test)
     """
 
     def __init__(
@@ -167,6 +173,8 @@ class KneeStudyDataset:
         split: str = "train",
         study_ids: list[str] | None = None,
         labeled_only: bool = True,
+        pseudo_labels_path: Path | str | None = None,
+        min_confidence: float = 0.7,
         volume_shape: tuple[int, int, int] = (16, 256, 256),
         max_series: int = 3,
         cache: bool = True,
@@ -181,7 +189,11 @@ class KneeStudyDataset:
         self.max_series = max_series
         self.cache = cache
         self.require_dicom = require_dicom
+        self.min_confidence = float(min_confidence)
         self._cache: dict[str, np.ndarray] = {}
+        self._pseudo: pd.DataFrame | None = None
+        if pseudo_labels_path is not None:
+            self._pseudo = load_pseudo_labels(pseudo_labels_path).set_index(STUDY_ID_COL)
 
         if split == "train":
             self.studies = load_train_table(self.data_root)
@@ -208,19 +220,47 @@ class KneeStudyDataset:
         study_uid = self.study_ids[index]
         image = self._load_image(study_uid)
 
+        report = ""
         if self.split == "train":
             row = self.studies[self.studies[STUDY_ID_COL] == study_uid].iloc[0]
-            labels, mask = _labels_and_mask(row)
+            labels, mask, confidence = self._resolve_labels(study_uid, row)
+            report = str(row.get(REPORT_COL, ""))
         else:
             labels = np.zeros(len(TARGET_LABELS), dtype=np.float32)
             mask = np.zeros(len(TARGET_LABELS), dtype=np.float32)
+            confidence = np.zeros(len(TARGET_LABELS), dtype=np.float32)
 
         return {
             "study_uid": study_uid,
             "image": image,
             "labels": labels,
             "mask": mask,
+            "confidence": confidence,
+            "report": report,
         }
+
+    def _resolve_labels(self, study_uid: str, row: pd.Series) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Ground truth for labeled studies; pseudo-labels otherwise."""
+        explicit_mask = labels_present_mask(pd.DataFrame([row]))[0]
+        if explicit_mask:
+            labels, mask = _labels_and_mask(row)
+            confidence = mask.copy()
+            return labels, mask, confidence
+
+        labels = np.zeros(len(TARGET_LABELS), dtype=np.float32)
+        mask = np.zeros(len(TARGET_LABELS), dtype=np.float32)
+        confidence = np.zeros(len(TARGET_LABELS), dtype=np.float32)
+
+        if self._pseudo is not None and study_uid in self._pseudo.index:
+            pseudo_row = self._pseudo.loc[study_uid]
+            for i, name in enumerate(TARGET_LABELS):
+                conf_col = f"{name}{CONF_SUFFIX}"
+                conf = float(pseudo_row.get(conf_col, 0.0))
+                if conf >= self.min_confidence:
+                    labels[i] = float(pseudo_row.get(name, 0.0))
+                    mask[i] = 1.0
+                    confidence[i] = conf
+        return labels, mask, confidence
 
     def _load_image(self, study_uid: str) -> np.ndarray:
         if self.cache and study_uid in self._cache:
@@ -272,4 +312,6 @@ def collate_studies(batch: list[dict[str, Any]]) -> dict[str, Any]:
         "image": np.stack([item["image"] for item in batch], axis=0),
         "labels": np.stack([item["labels"] for item in batch], axis=0),
         "mask": np.stack([item["mask"] for item in batch], axis=0),
+        "confidence": np.stack([item["confidence"] for item in batch], axis=0),
+        "report": [item.get("report", "") for item in batch],
     }

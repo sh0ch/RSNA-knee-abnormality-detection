@@ -13,6 +13,7 @@ def masked_bce_with_logits(
     mask: Any,
     *,
     pos_weight: Any | None = None,
+    confidence: Any | None = None,
 ) -> Any:
     """
     BCE-with-logits that ignores labels where ``mask == 0`` (NaN / missing).
@@ -22,6 +23,7 @@ def masked_bce_with_logits(
         targets: ``[B, C]`` float in {0,1} (NaNs already zeroed)
         mask: ``[B, C]`` float 0/1
         pos_weight: optional ``[C]`` positive-class weights
+        confidence: optional ``[B, C]`` per-label weights (Phase 2 pseudo-labels)
     """
     import torch.nn.functional as F
 
@@ -35,6 +37,10 @@ def masked_bce_with_logits(
         pos_weight=pos_weight,
     )
     loss = loss * mask
+    if confidence is not None:
+        loss = loss * confidence
+        denom = (mask * confidence).sum().clamp_min(1.0)
+        return loss.sum() / denom
     return loss.sum() / mask.sum().clamp_min(1.0)
 
 

@@ -119,15 +119,47 @@ def create_sample_dataset(
     train_root = output_dir / TRAIN_SERIES_DIR
     test_root = output_dir / TEST_SERIES_DIR
 
-    for _ in range(num_train_studies):
+    for i in range(num_train_studies):
         study_uid = _make_uid()
         labels = {label: int(rng.random() > 0.7) for label in TARGET_LABELS}
+        report_text = (
+            "MRI knee: moderate joint effusion. No fracture. Medial meniscus tear suspected."
+            if i % 2 == 0
+            else "Sample radiology report for local testing."
+        )
         train_rows.append(
             {
                 STUDY_ID_COL: study_uid,
                 PATIENT_SEX_COL: rng.choice(["M", "F"]),
-                REPORT_COL: "Sample radiology report for local testing.",
+                REPORT_COL: report_text,
                 **labels,
+            }
+        )
+        for s in range(series_per_study):
+            series_uid = _make_uid()
+            train_series_rows.append(
+                {
+                    STUDY_ID_COL: study_uid,
+                    SERIES_ID_COL: series_uid,
+                    FLUID_COL: 1 if s == 0 else 0,
+                }
+            )
+            _write_series(train_root, study_uid, series_uid, slices_per_series)
+
+    # Report-only studies (NaN labels) for Phase 2 pseudo-label testing.
+    for i in range(max(1, num_train_studies // 2)):
+        study_uid = _make_uid()
+        label_values = {label: np.nan for label in TARGET_LABELS}
+        train_rows.append(
+            {
+                STUDY_ID_COL: study_uid,
+                PATIENT_SEX_COL: rng.choice(["M", "F"]),
+                REPORT_COL: (
+                    "Kein Erguss. Laterale Meniskusläsion möglich."
+                    if i % 2 == 0
+                    else "Joint effusion present without ACL tear."
+                ),
+                **label_values,
             }
         )
         for s in range(series_per_study):

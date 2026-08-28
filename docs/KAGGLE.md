@@ -20,10 +20,19 @@ Package code (`src/rsna_knee/`) is **not** git-cloned. Publish it as Dataset `si
 4. In Cursor, open:
    - EDA: `notebooks/02_eda_phase0.ipynb`
    - Train: `notebooks/03_phase1_image_baseline.ipynb`
+   - Phase 2: `notebooks/04_phase2_pseudo_labels.ipynb`
 5. Kernel picker → **Select Another Kernel** → **Existing Jupyter Server** → paste the URL → name it (e.g. `Kaggle GPU`).
-6. Run cells. Check with `!nvidia-smi` if using GPU.
+6. From the repo, push the current package onto the kernel (no Dataset version):
+
+```bash
+python scripts/sync_code_to_jupyter.py
+```
+
+Use the same URL, or set `KAGGLE_JUPYTER_URL` in `.env`. Then run cells. The setup cell imports `/kaggle/working/src`.
 
 Reconnect with a fresh URL if the session times out. The local `.ipynb` is **not** synced to the Kaggle notebook file — only the execution backend is shared.
+
+If setup still cannot find `rsna_knee`, the Jupyter URL is stale or sync was not run. Competition data is separate: if `ls /kaggle/input` is empty, start Jupyter Server from kernel `simonhochwebde/rsna-knee-phase1-image` with the competition attached — DICOMs cannot be synced from your PC.
 
 After changing `src/` or `configs/`, republish the Dataset before expecting new imports on the remote kernel:
 
@@ -44,6 +53,7 @@ python scripts/publish_code_dataset.py
 # Copy source notebook into kaggle/{eda|train}/ and push:
 python scripts/push_kaggle_kernel.py eda
 python scripts/push_kaggle_kernel.py train
+python scripts/push_kaggle_kernel.py phase2
 ```
 
 On Kaggle:
@@ -59,8 +69,9 @@ On Kaggle:
 |------|--------------|-----------|----------|
 | EDA | `notebooks/02_eda_phase0.ipynb` | `simonhochwebde/rsna-knee-eda-phase-0` | `kaggle/eda/kernel-metadata.json` |
 | Phase 1 | `notebooks/03_phase1_image_baseline.ipynb` | `simonhochwebde/rsna-knee-phase1-image` | `kaggle/train/kernel-metadata.json` |
+| Phase 2 | `notebooks/04_phase2_pseudo_labels.ipynb` | `simonhochwebde/rsna-knee-phase2-pseudo` | `kaggle/phase2/kernel-metadata.json` |
 
-Configs: `configs/kaggle_eda.yaml`, `configs/kaggle_train.yaml`.
+Configs: `configs/kaggle_eda.yaml`, `configs/kaggle_train.yaml`, `configs/kaggle_phase2.yaml`.
 
 ## Data paths
 

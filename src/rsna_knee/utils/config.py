@@ -20,6 +20,7 @@ def load_config(name: str = "default") -> dict[str, Any]:
     """
     candidates = [
         project_root() / "configs" / f"{name}.yaml",
+        Path("/kaggle/working/configs") / f"{name}.yaml",
         Path("/kaggle/input/rsna-knee-code/configs") / f"{name}.yaml",
     ]
     for path in candidates:

@@ -28,6 +28,7 @@ from rsna_knee.utils.paths import project_root
 TARGETS: dict[str, str] = {
     "eda": "kaggle_eda.yaml",
     "train": "kaggle_train.yaml",
+    "phase2": "kaggle_phase2_train.yaml",
 }
 
 

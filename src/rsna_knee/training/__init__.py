@@ -19,6 +19,7 @@ def __getattr__(name: str):
         "predict_test_ensemble",
         "prevalence_baseline_predictions",
         "run_kfold_training",
+        "run_phase2_training",
     }:
         from rsna_knee.training import loop as _loop
 

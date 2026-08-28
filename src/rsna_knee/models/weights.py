@@ -8,12 +8,21 @@ from pathlib import Path
 from rsna_knee.utils.paths import is_kaggle_kernel, project_root
 
 CONVNEXT_TINY_FILENAME = "convnext_tiny_imagenet.pth"
+RAD_IMAGENET_CONVNEXT_TINY_FILENAME = "convnext_tiny_radimagenet.pth"
+
+# Known pretrained weight filenames for Phase 2 backbone comparison.
+PRETRAINED_WEIGHT_REGISTRY: dict[str, str] = {
+    "imagenet": CONVNEXT_TINY_FILENAME,
+    "radimagenet": RAD_IMAGENET_CONVNEXT_TINY_FILENAME,
+}
 
 # Relative paths under /kaggle/input or the local repo.
 _KAGGLE_WEIGHT_CANDIDATES: list[str] = [
     "rsna-knee-pretrained/convnext_tiny_imagenet.pth",
     "rsna-knee-pretrained/weights/convnext_tiny_imagenet.pth",
+    "rsna-knee-pretrained/convnext_tiny_radimagenet.pth",
     "simonhochwebde/rsna-knee-pretrained/convnext_tiny_imagenet.pth",
+    "simonhochwebde/rsna-knee-pretrained/convnext_tiny_radimagenet.pth",
 ]
 
 
@@ -31,6 +40,7 @@ def resolve_pretrained_weights(
     *,
     explicit: Path | str | None = None,
     allow_missing: bool = False,
+    variant: str | None = None,
 ) -> Path | None:
     """
     Locate a pretrained ``.pth`` file without downloading.
@@ -42,7 +52,12 @@ def resolve_pretrained_weights(
 
     On Kaggle or locally, returns ``None`` when missing if ``allow_missing`` is True
     (from-scratch training). Otherwise raises ``FileNotFoundError``.
+
+    ``variant`` may be ``imagenet`` or ``radimagenet`` to select a registered filename.
     """
+    if variant is not None:
+        filename = PRETRAINED_WEIGHT_REGISTRY.get(variant, filename)
+
     candidates: list[Path] = []
 
     if explicit is not None:

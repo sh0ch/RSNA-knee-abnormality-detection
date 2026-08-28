@@ -5,7 +5,7 @@ seed: 42
 
 data:
   root: null  # resolved by default_data_root() on Kaggle
-  num_workers: 4
+  num_workers: 0  # volumes are cached; workers only add CPU overhead
   volume_shape: [16, 256, 256]
   max_series: 3
 
@@ -13,18 +13,20 @@ model:
   name: convnext_tiny_mil
   num_labels: 12
   use_report_text: false
-  # Phase 1: from-scratch to validate the submit pipeline (n=58 → weak score expected).
+  # Cap ConvNeXt activations: N slices per forward (48 slices/study at 256²).
+  slice_chunk: 16
   allow_random_init: true
 
 training:
-  # Per GPU. T4 x2 → global batch 8. Drop to 2 if you OOM on a single GPU.
-  batch_size: 4
+  batch_size: 2
   learning_rate: 1.0e-4
   max_epochs: 8
   val_fold: 0
   n_folds: 5
   mixup_alpha: 0.4
   amp: true
+  gpu_cache: false  # saves ~2 GiB VRAM; CPU cache + pin_memory is enough for n=58
+  data_parallel: false
 
 inference:
   tta: true

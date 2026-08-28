@@ -50,9 +50,11 @@ class ConvNeXtTinyMIL(nn.Module):
         allow_random_init: bool = True,
         attention_hidden: int = 256,
         dropout: float = 0.2,
+        slice_chunk: int = 16,
     ) -> None:
         super().__init__()
         self.num_labels = num_labels
+        self.slice_chunk = max(int(slice_chunk), 0)
 
         backbone = convnext_tiny(weights=None)
         # Drop classification head; keep features + avgpool → 768-d vector.
@@ -87,12 +89,30 @@ class ConvNeXtTinyMIL(nn.Module):
             nn.Dropout(dropout),
             nn.Linear(feat_dim, num_labels),
         )
+        self.register_buffer(
+            "_imagenet_mean",
+            torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1),
+        )
+        self.register_buffer(
+            "_imagenet_std",
+            torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1),
+        )
 
     def encode_slices(self, slices: torch.Tensor) -> torch.Tensor:
-        """``[B*S, 3, H, W]`` → ``[B*S, D]``."""
+        """``[N, 3, H, W]`` → ``[N, D]``."""
         x = self.features(slices)
         x = self.avgpool(x)
         return torch.flatten(x, 1)
+
+    def _encode_slices_chunked(self, flat: torch.Tensor) -> torch.Tensor:
+        """Run ConvNeXt on ``flat`` in VRAM-bounded chunks."""
+        chunk = self.slice_chunk
+        if chunk <= 0 or flat.size(0) <= chunk:
+            return self.encode_slices(flat)
+        parts: list[torch.Tensor] = []
+        for start in range(0, flat.size(0), chunk):
+            parts.append(self.encode_slices(flat[start : start + chunk]))
+        return torch.cat(parts, dim=0)
 
     def forward(self, images: torch.Tensor) -> torch.Tensor:
         """
@@ -106,11 +126,8 @@ class ConvNeXtTinyMIL(nn.Module):
             raise ValueError(f"Expected [B,S,3,H,W], got {tuple(images.shape)}")
         batch, num_slices, channels, height, width = images.shape
         flat = images.reshape(batch * num_slices, channels, height, width)
-        # ImageNet normalization (offline; matches torchvision ConvNeXt).
-        mean = flat.new_tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1)
-        std = flat.new_tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1)
-        flat = (flat - mean) / std
-        feats = self.encode_slices(flat).view(batch, num_slices, -1)
+        flat = (flat - self._imagenet_mean) / self._imagenet_std
+        feats = self._encode_slices_chunked(flat).view(batch, num_slices, -1)
         pooled, _ = self.pool(feats)
         return self.head(pooled)
 
@@ -144,6 +161,7 @@ def build_model(
     num_labels: int = len(TARGET_LABELS),
     pretrained_path: Path | str | None = None,
     allow_random_init: bool = True,
+    slice_chunk: int = 16,
 ) -> nn.Module:
     """Factory used by configs / notebooks."""
     if name in {"convnext_tiny_mil", "baseline"}:
@@ -151,6 +169,7 @@ def build_model(
             num_labels=num_labels,
             pretrained_path=pretrained_path,
             allow_random_init=allow_random_init,
+            slice_chunk=slice_chunk,
         )
     raise ValueError(f"Unknown model name: {name}")
 

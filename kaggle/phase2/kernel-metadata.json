@@ -1,0 +1,17 @@
+{
+  "id": "simonhochwebde/rsna-knee-phase2-pseudo",
+  "title": "RSNA Knee Phase2 Pseudo Labels",
+  "code_file": "phase2.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": false,
+  "dataset_sources": [
+    "simonhochwebde/rsna-knee-code",
+    "simonhochwebde/rsna-knee-pretrained"
+  ],
+  "competition_sources": [
+    "rsna-knee-abnormality-detection"
+  ]
+}

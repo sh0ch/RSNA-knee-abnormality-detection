@@ -1,0 +1,15 @@
+# Phase 2 train kernel (offline-submittable)
+#
+# Edit: notebooks/04_phase2_pseudo_labels.ipynb
+# Publish package: python scripts/publish_code_dataset.py
+# Submit push:     python scripts/push_kaggle_kernel.py phase2
+#
+# Attach: competition data + rsna-knee-code + rsna-knee-pretrained (ImageNet weights)
+
+kernel_id: simonhochwebde/rsna-knee-phase2-pseudo
+kernel_title: RSNA Knee Phase2 Pseudo Labels
+kernel_dir: kaggle/phase2
+source_notebook: notebooks/04_phase2_pseudo_labels.ipynb
+code_file: phase2.ipynb
+code_dataset: simonhochwebde/rsna-knee-code
+pretrained_dataset: simonhochwebde/rsna-knee-pretrained

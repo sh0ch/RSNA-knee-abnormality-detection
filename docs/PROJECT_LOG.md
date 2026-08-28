@@ -6,8 +6,8 @@ Living notes from EDA, experiments, and competition learning.
 | Phase | Status | Doc / artifact |
 |-------|--------|----------------|
 | 0 — EDA | Done (2026-08-15) | `notebooks/02_eda_phase0.ipynb` |
-| 1 — Image baseline | In progress | `notebooks/03_phase1_image_baseline.ipynb` |
-| 2 — Reports / semi-supervised | Not started | — |
+| 1 — Image baseline | Done (2026-08-28) | `notebooks/03_phase1_image_baseline.ipynb` |
+| 2 — Reports / semi-supervised | In progress | `notebooks/04_phase2_pseudo_labels.ipynb` |
 
 ---
 
@@ -127,10 +127,54 @@ Slice count, resolution, and orientation vary by site — full distribution stil
 
 ### Next
 
-- Connect Cursor to Kaggle Jupyter Server (prefer T4), publish Dataset, run GPU train
-- Submit via `python scripts/push_kaggle_kernel.py train` + Save & Run All
-- Record OOF / LB macro ROC-AUC here after first successful Kaggle run
+- ~~Connect Cursor to Kaggle Jupyter Server (prefer T4), publish Dataset, run GPU train~~
+- ~~Submit via `python scripts/push_kaggle_kernel.py train` + Save & Run All~~
+- ~~Record OOF / LB macro ROC-AUC here after first successful Kaggle run~~
 - Then Phase 2: report-derived labels for the 4,349 unlabeled studies; revisit ImageNet init
+
+### Results (Kaggle interactive run, 2026-08-28)
+
+| Metric | Value |
+|--------|------:|
+| OOF macro ROC-AUC | **0.5295** |
+| Training | 5-fold × 8 epochs, dual T4, from-scratch ConvNeXt-Tiny MIL |
+| Studies | 58 labeled only |
+
+**Best per-label OOF AUC:** medial meniscus (0.71), joint effusion (0.69), synovitis (0.63).
+
+**Worst per-label OOF AUC:** fracture (0.32), bone contusion (0.40).
+
+`submission.csv` schema validated. Leaderboard score: TBD after offline Save & Run All submit.
+
+---
+
+## Phase 2 — Pseudo-labels from reports (2026-08-28)
+
+### What we built
+
+- **Hybrid labeler:** `rsna_knee.reports` — keyword rules (EN/DE/ES) + optional LLM for ambiguous cases
+- **Report EDA:** language heuristics, length stats, keyword hit rates on labeled studies
+- **Pseudo-label training:** extended `KneeStudyDataset` + confidence-weighted masked BCE
+- **OOF on 58 labeled** while training on all 4,407 studies (`eval_labeled_only`)
+- **Pretrained comparison:** `resolve_pretrained_weights(variant=imagenet|radimagenet)` + export script
+- **Multimodal (train-only):** `MultimodalMIL` — text fusion at train, image-only at inference
+- **Notebook:** `notebooks/04_phase2_pseudo_labels.ipynb`
+- **Kaggle kernel:** `simonhochwebde/rsna-knee-phase2-pseudo` via `push_kaggle_kernel.py phase2`
+
+### Configs
+
+| File | Use |
+|------|-----|
+| `configs/phase2.yaml` | Local smoke |
+| `configs/kaggle_phase2.yaml` | Kaggle full run |
+
+### Next
+
+- Run report EDA + pseudo-label generation on Kaggle full data
+- Train with ImageNet pretrained; compare OOF vs Phase 1 baseline (0.5295)
+- Compare RadImageNet variant under same pseudo-labels (if rules permit)
+- Enable multimodal experiment after pseudo-label image baseline lands
+- Record Phase 2 OOF / LB scores here
 
 ---
 
@@ -162,3 +206,5 @@ Slice count, resolution, and orientation vary by site — full distribution stil
 | 2026-08-15 | Kaggle v7: test counts (3/15), 512×512 MR, **filename ≠ slice order** — sort by InstanceNumber |
 | 2026-08-15 | Phase 1 scaffold: ConvNeXt-Tiny MIL notebook, offline vendor sync; **from-scratch** default |
 | 2026-08-15 | Workflow: Cursor ↔ Kaggle Jupyter Server; Dataset publish + thin kernel push; removed dual-notebook sync clones |
+| 2026-08-28 | Phase 1 done: OOF 0.5295 on 58 labeled; submission.csv validated on Kaggle |
+| 2026-08-28 | Phase 2 scaffold: hybrid report labeler, pseudo-label training, multimodal model, notebook 04 |

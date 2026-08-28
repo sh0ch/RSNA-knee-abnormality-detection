@@ -9,7 +9,9 @@ from rsna_knee.models.weights import (
 __all__ = [
     "CONVNEXT_TINY_FILENAME",
     "ConvNeXtTinyMIL",
+    "MultimodalMIL",
     "build_model",
+    "build_multimodal_model",
     "default_convnext_tiny_path",
     "mixup_batch",
     "resolve_pretrained_weights",
@@ -22,4 +24,8 @@ def __getattr__(name: str):
         from rsna_knee.models import mil_2p5d as _mil
 
         return getattr(_mil, name)
+    if name in {"MultimodalMIL", "build_multimodal_model"}:
+        from rsna_knee.models import multimodal as _mm
+
+        return getattr(_mm, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

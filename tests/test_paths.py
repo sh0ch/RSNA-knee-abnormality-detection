@@ -36,6 +36,15 @@ def test_is_kaggle_kernel_detects_run_type(monkeypatch: pytest.MonkeyPatch) -> N
     assert paths.is_kaggle_kernel() is True
 
 
+def test_default_data_root_on_kaggle_missing_raises(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("KAGGLE_KERNEL_RUN_TYPE", "Interactive")
+    monkeypatch.setattr(paths, "_discover_kaggle_data_root", lambda: None)
+    with pytest.raises(FileNotFoundError, match="Competition data is not mounted"):
+        paths.default_data_root()
+
+
 def test_default_data_root_on_kaggle_uses_competitions_layout(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

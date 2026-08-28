@@ -1,0 +1,44 @@
+# Phase 2 — Kaggle pseudo-label training (internet OFF for submit)
+seed: 42
+
+data:
+  root: null
+  num_workers: 2
+  volume_shape: [16, 256, 256]
+  max_series: 3
+  labeled_only: false
+  pseudo_labels_path: /kaggle/working/outputs/pseudo_labels.csv
+  min_confidence: 0.7
+
+model:
+  name: convnext_tiny_mil
+  num_labels: 12
+  use_report_text: false
+  allow_random_init: false
+  pretrained_weights: convnext_tiny_imagenet.pth
+  slice_chunk: 16
+  use_multimodal: false
+  text_model_path: null
+
+training:
+  batch_size: 2
+  learning_rate: 1.0e-4
+  max_epochs: 8
+  n_folds: 5
+  mixup_alpha: 0.4
+  amp: true
+  gpu_cache: false
+  data_parallel: false
+  confidence_weighted_loss: true
+  eval_labeled_only: true
+
+inference:
+  tta: true
+
+paths:
+  output_dir: /kaggle/working/outputs
+  checkpoint_dir: /kaggle/working/checkpoints/phase2
+
+reports:
+  route_threshold: 0.7
+  llm_model_path: null

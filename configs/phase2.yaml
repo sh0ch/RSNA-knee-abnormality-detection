@@ -1,0 +1,43 @@
+# Phase 2 — pseudo-label training (local smoke)
+seed: 42
+
+data:
+  root: null
+  num_workers: 0
+  volume_shape: [16, 256, 256]
+  max_series: 3
+  labeled_only: false
+  pseudo_labels_path: outputs/pseudo_labels.csv
+  min_confidence: 0.7
+
+model:
+  name: convnext_tiny_mil
+  num_labels: 12
+  use_report_text: false
+  allow_random_init: false
+  pretrained_weights: convnext_tiny_imagenet.pth
+  slice_chunk: 16
+  use_multimodal: false
+  text_model_path: null
+
+training:
+  batch_size: 2
+  learning_rate: 1.0e-4
+  max_epochs: 1
+  n_folds: 5
+  mixup_alpha: 0.4
+  amp: true
+  gpu_cache: false
+  confidence_weighted_loss: true
+  eval_labeled_only: true
+
+inference:
+  tta: false
+
+paths:
+  output_dir: outputs
+  checkpoint_dir: checkpoints/phase2
+
+reports:
+  route_threshold: 0.7
+  llm_model_path: null
