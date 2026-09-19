@@ -73,6 +73,7 @@ data/llm/
 
 # Model artifacts
 outputs/
+volume_cache/
 kaggle/datasets/rsna-knee-pseudo-labels/
 checkpoints/
 weights/

@@ -24,6 +24,17 @@ def resize_slice(slice_2d: np.ndarray, height: int, width: int) -> np.ndarray:
     if src_h == height and src_w == width:
         return slice_2d.astype(np.float32, copy=False)
 
+    try:
+        import cv2
+
+        return cv2.resize(
+            slice_2d.astype(np.float32, copy=False),
+            (width, height),
+            interpolation=cv2.INTER_LINEAR,
+        ).astype(np.float32, copy=False)
+    except ImportError:
+        pass
+
     y = np.linspace(0, src_h - 1, height)
     x = np.linspace(0, src_w - 1, width)
     y0 = np.floor(y).astype(np.int64)

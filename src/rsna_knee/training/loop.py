@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import traceback
+from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-import traceback
 
 import numpy as np
 import torch
@@ -16,8 +17,19 @@ from torch.utils.data import DataLoader, Dataset, Subset
 from tqdm.auto import tqdm
 
 from rsna_knee.constants import TARGET_LABELS
-from rsna_knee.data.dataset import KneeStudyDataset
+from rsna_knee.data.dataset import (
+    KneeStudyDataset,
+    disk_cache_fits,
+    uint8_cache_nbytes,
+    warm_volume_cache,
+)
 from rsna_knee.data.schema import labels_present_mask, load_train_table
+from rsna_knee.data.volume_cache import (
+    cached_npy_stems,
+    discover_volume_cache_read_dirs,
+    discover_volume_cache_roots,
+    volume_cache_shape_name,
+)
 from rsna_knee.models.mil_2p5d import (
     build_model,
     horizontal_flip_tta,
@@ -26,6 +38,7 @@ from rsna_knee.models.mil_2p5d import (
 from rsna_knee.training.augment import augment_study_batch
 from rsna_knee.training.loss import compute_pos_weight, masked_bce_with_logits
 from rsna_knee.training.metrics import macro_roc_auc
+from rsna_knee.utils.paths import default_volume_cache_dir
 
 
 @dataclass
@@ -151,7 +164,17 @@ def _make_loader(
     shuffle: bool,
     num_workers: int,
     pin_memory: bool,
-) -> DataLoader:
+    io_threads: int = 0,
+) -> DataLoader | _ThreadedLoader:
+    if io_threads > 0:
+        return _ThreadedLoader(
+            ds,
+            indices,
+            batch_size=batch_size,
+            shuffle=shuffle,
+            num_threads=io_threads,
+            pin_memory=pin_memory,
+        )
     kwargs: dict[str, Any] = {}
     if num_workers > 0:
         kwargs["persistent_workers"] = True
@@ -167,6 +190,75 @@ def _make_loader(
         collate_fn=_collate_torch,
         **kwargs,
     )
+
+
+class _ThreadedLoader:
+    """Study decode on a thread pool — safe inside fold ``ThreadPoolExecutor``.
+
+    Process DataLoader workers hang when started from a non-main thread, which
+    is why ``parallel_folds`` cannot use ``num_workers>0``. Threads overlap
+    DICOM / disk-cache I/O with GPU compute and share the in-process caches.
+    """
+
+    def __init__(
+        self,
+        ds: Dataset,
+        indices: list[int],
+        *,
+        batch_size: int,
+        shuffle: bool,
+        num_threads: int,
+        pin_memory: bool,
+    ) -> None:
+        self.ds = ds
+        self.indices = list(indices)
+        self.batch_size = max(int(batch_size), 1)
+        self.shuffle = bool(shuffle)
+        self.num_threads = max(int(num_threads), 1)
+        self.pin_memory = bool(pin_memory)
+        self._epoch = 0
+
+    def __len__(self) -> int:
+        return (len(self.indices) + self.batch_size - 1) // self.batch_size
+
+    def _collate(self, items: list[dict[str, Any]]) -> dict[str, Any]:
+        batch = _collate_torch(items)
+        if self.pin_memory:
+            for key in ("image", "labels", "mask", "confidence"):
+                tensor = batch[key]
+                if torch.is_tensor(tensor):
+                    batch[key] = tensor.pin_memory()
+        return batch
+
+    def __iter__(self):
+        order = list(self.indices)
+        if self.shuffle:
+            rng = np.random.RandomState(self._epoch)
+            rng.shuffle(order)
+            self._epoch += 1
+        in_flight = max(self.num_threads * 2, self.batch_size)
+        with ThreadPoolExecutor(max_workers=self.num_threads) as pool:
+            pending: deque[Any] = deque()
+            order_iter = iter(order)
+
+            def _fill() -> None:
+                while len(pending) < in_flight:
+                    try:
+                        idx = next(order_iter)
+                    except StopIteration:
+                        return
+                    pending.append(pool.submit(self.ds.__getitem__, idx))
+
+            batch_items: list[dict[str, Any]] = []
+            _fill()
+            while pending:
+                batch_items.append(pending.popleft().result())
+                _fill()
+                if len(batch_items) >= self.batch_size:
+                    yield self._collate(batch_items)
+                    batch_items = []
+            if batch_items:
+                yield self._collate(batch_items)
 
 
 def train_one_epoch(
@@ -307,6 +399,7 @@ def _train_one_fold(
     loader_batch: int,
     num_workers: int,
     pin_memory: bool,
+    io_threads: int,
     max_epochs: int,
     learning_rate: float,
     pretrained_path: Path | str | None,
@@ -338,6 +431,7 @@ def _train_one_fold(
         shuffle=True,
         num_workers=num_workers,
         pin_memory=pin_memory,
+        io_threads=io_threads,
     )
     val_loader = _make_loader(
         ds,
@@ -346,6 +440,7 @@ def _train_one_fold(
         shuffle=False,
         num_workers=num_workers,
         pin_memory=pin_memory,
+        io_threads=io_threads,
     )
 
     if use_multimodal:
@@ -494,6 +589,8 @@ def run_kfold_training(
     mixup_alpha: float = 0.4,
     use_multimodal: bool = False,
     text_model_path: Path | str | None = None,
+    cache_dir: Path | str | None = None,
+    warm_cache: bool = True,
 ) -> dict[str, Any]:
     """
     Train study-level k-fold CV.
@@ -546,6 +643,46 @@ def run_kfold_training(
     if gpu_cache or ram_cache:
         num_workers = 0
 
+    resolved_cache: Path | None = None
+    if cache_dir is not None:
+        cache_str = str(cache_dir).strip()
+        if cache_str and cache_str.lower() not in {"none", "null", "false"}:
+            resolved_cache = Path(cache_dir)
+    else:
+        resolved_cache = default_volume_cache_dir()
+    disk_cache_on = False
+    cache_read_roots = discover_volume_cache_roots()
+    if resolved_cache is None and cache_read_roots:
+        resolved_cache = Path("/kaggle/working/volume_cache")
+    shape_name = volume_cache_shape_name(volume_shape, max_series)
+    if resolved_cache is not None and not ram_cache and not gpu_cache:
+        read_dirs = discover_volume_cache_read_dirs(shape_name)
+        write_shaped = resolved_cache / shape_name
+        n_have = len(cached_npy_stems([*read_dirs, write_shaped]))
+        n_missing = max(0, len(base) - n_have)
+        need_bytes = uint8_cache_nbytes(max(n_missing, 0), volume_shape, max_series)
+        can_write = n_missing == 0 or disk_cache_fits(
+            max(n_missing, 1), volume_shape, max_series, resolved_cache
+        )
+        if n_have > 0 or can_write:
+            base.enable_disk_cache(
+                resolved_cache,
+                extra_read_dirs=cache_read_roots,
+            )
+            disk_cache_on = True
+            if n_missing and not can_write:
+                print(
+                    f"volume cache writes skipped ({need_bytes / (1024**3):.1f} GiB "
+                    f"missing); reading {n_have} npy from attached Dataset",
+                    flush=True,
+                )
+        else:
+            print(
+                f"disk cache skipped: need ~{need_bytes / (1024**3):.1f} GiB under "
+                f"{resolved_cache}",
+                flush=True,
+            )
+
     labeled_indices: np.ndarray | None = None
     if eval_labeled_only:
         train_df = load_train_table(data_root)
@@ -571,24 +708,29 @@ def run_kfold_training(
                 flush=True,
             )
     fold_workers = num_workers
+    io_threads = 0
     if use_parallel:
-        # DataLoader workers must be started from the main process. Spawning
-        # them from ThreadPoolExecutor threads hangs on the first batch
-        # (tqdm stuck at 0/N with ?it/s).
+        # Process DataLoader workers hang when spawned from fold threads.
+        # ThreadedLoader overlaps I/O without that restriction.
         fold_workers = 0
+        io_threads = max(int(num_workers), 4)
 
     gpu_mode = "gpu-cache" if gpu_cache else ("cpu-cache" if ram_cache else "stream")
+    if disk_cache_on:
+        gpu_mode = f"{gpu_mode}+disk"
     if use_dp:
         gpu_sched = f"dp×{n_gpus}"
     elif use_parallel:
         gpu_sched = f"{n_gpus}-gpu fold-parallel"
     else:
         gpu_sched = "single-gpu"
+    worker_str = (
+        f"threads={io_threads}×{n_gpus}" if io_threads else f"workers={fold_workers}"
+    )
     print(
         f"{len(base)} studies | {n_splits} folds × {max_epochs} epochs | "
         f"{device} ({gpu_sched}) | batch {loader_batch} | {gpu_mode} | "
-        f"workers={fold_workers}"
-        f"{' in-thread ×2' if use_parallel else ''} | slice_chunk={slice_chunk} | amp={use_amp} | "
+        f"{worker_str} | slice_chunk={slice_chunk} | amp={use_amp} | "
         f"labeled_only={labeled_only} | pseudo={pseudo_labels_path is not None}",
         flush=True,
     )
@@ -597,10 +739,22 @@ def run_kfold_training(
             f"Streaming DICOMs ({cache_bytes / (1024**3):.0f} GiB RAM cache skipped).",
             flush=True,
         )
+    if disk_cache_on:
+        need_gib = uint8_cache_nbytes(len(base), volume_shape, max_series) / (1024**3)
+        print(
+            f"Disk cache {need_gib:.1f} GiB uint8 write → {base.cache_dir}",
+            flush=True,
+        )
+        mounts = ", ".join(str(p) for p in cache_read_roots) or "(none)"
+        print(f"Disk cache read mounts: {mounts}", flush=True)
 
     if ram_cache or gpu_cache:
         for i in tqdm(range(len(base)), desc="cache volumes (cpu)"):
             _ = base[i]
+    elif disk_cache_on and warm_cache:
+        warm_workers = max(8, int(num_workers) if num_workers else 8)
+        print(f"Warming volume cache with {warm_workers} threads...", flush=True)
+        warm_volume_cache(base, max_workers=warm_workers)
 
     labels_all_np, masks_all, _ = base.stacked_labels()
 
@@ -628,6 +782,7 @@ def run_kfold_training(
         "loader_batch": loader_batch,
         "num_workers": fold_workers,
         "pin_memory": pin_memory,
+        "io_threads": io_threads,
         "max_epochs": max_epochs,
         "learning_rate": learning_rate,
         "pretrained_path": pretrained_path,

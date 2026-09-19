@@ -28,6 +28,7 @@ Attach on the kernel before starting Jupyter Server or Save & Run All:
 - **Competition:** `rsna-knee-abnormality-detection`
 - **Code Dataset:** `simonhochwebde/rsna-knee-code`
 - **Pretrained (Phase 1+2 with ImageNet init):** `simonhochwebde/rsna-knee-pretrained`
+- **Volume cache (Phase 2, optional):** `simonhochwebde/rsna-knee-volume-cache` — skip DICOM recache. Publish after first warm: `python scripts/publish_volume_cache.py` (internet ON).
 - **GPU:** prefer **T4** (not P100 — PyTorch needs sm_70+)
 - **Submit runs:** internet **OFF**, GPU **ON**
 
@@ -115,6 +116,7 @@ Restart the Jupyter Server session.
 - Expects ImageNet weights (`allow_random_init: false`) → attach `rsna-knee-pretrained`.
 - LLM confirmer (section 2b): attach Hugging Face model **Qwen/Qwen2.5-1.5B-Instruct** via Add Input → Models. Restart Jupyter after attaching. Loader uses `/kaggle/input/models/...` — do not download from huggingface.co.
 - Pseudo-labels: `/kaggle/working/outputs/pseudo_labels.csv` this session. Pull locally with `python scripts/pull_pseudo_labels.py`, later upload with `python scripts/publish_pseudo_labels.py`. Set `FORCE_RELABEL = False` to skip regeneration.
+- Volume cache: `/tmp/rsna_volume_cache/...` this session. After warming, `python scripts/publish_volume_cache.py` (internet ON) → Dataset `simonhochwebde/rsna-knee-volume-cache`. Attach it before the next Jupyter start.
 - Outputs: `/kaggle/working/outputs/pseudo_labels.csv`, `/kaggle/working/submission.csv`
 - Compare backbones: same pseudo-labels, swap `model.pretrained_weights` / `pretrained_variant` in config.
 

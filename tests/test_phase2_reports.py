@@ -218,14 +218,54 @@ def test_hybrid_uses_ground_truth_for_labeled(sample_data_dir: Path) -> None:
     assert result.label_source == "ground_truth"
 
 
-def test_resolve_pseudo_labels_path_prefers_existing(tmp_path: Path) -> None:
-    from rsna_knee.reports.persist import resolve_pseudo_labels_path
+def test_resolve_pseudo_labels_path_prefers_existing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from rsna_knee.reports import persist as persist_mod
+
+    monkeypatch.setattr(persist_mod, "is_kaggle_kernel", lambda: False)
+    monkeypatch.setattr(persist_mod, "project_root", lambda: tmp_path)
 
     missing = tmp_path / "nope.csv"
-    assert resolve_pseudo_labels_path(missing) is None
+    assert persist_mod.resolve_pseudo_labels_path(missing) is None
     found = tmp_path / "pseudo_labels.csv"
     found.write_text("StudyInstanceUID\n1\n", encoding="utf-8")
-    assert resolve_pseudo_labels_path(found) == found
+    assert persist_mod.resolve_pseudo_labels_path(found) == found
+
+
+def test_resolve_pseudo_labels_path_kaggle_datasets_mount(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from rsna_knee.reports import persist as persist_mod
+
+    monkeypatch.setattr(persist_mod, "is_kaggle_kernel", lambda: True)
+    monkeypatch.setattr(persist_mod, "_kaggle_input_root", lambda: tmp_path / "input")
+    mount = tmp_path / "input" / "datasets" / "simonhochwebde" / "rsna-knee-pseudo-labels"
+    mount.mkdir(parents=True)
+    csv = mount / "pseudo_labels.csv"
+    csv.write_text("StudyInstanceUID\n1\n", encoding="utf-8")
+    assert persist_mod.resolve_pseudo_labels_path(tmp_path / "missing.csv") == csv
+
+
+def test_resolve_pseudo_labels_nested_in_dataset_mount(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from rsna_knee.reports import persist as persist_mod
+
+    monkeypatch.setattr(persist_mod, "is_kaggle_kernel", lambda: True)
+    monkeypatch.setattr(persist_mod, "_kaggle_input_root", lambda: tmp_path / "input")
+    csv = (
+        tmp_path
+        / "input"
+        / "datasets"
+        / "simonhochwebde"
+        / "rsna-knee-pseudo-labels"
+        / "archive"
+        / "pseudo_labels.csv"
+    )
+    csv.parent.mkdir(parents=True)
+    csv.write_text("StudyInstanceUID\n1\n", encoding="utf-8")
+    assert persist_mod.resolve_pseudo_labels_path(tmp_path / "missing.csv") == csv
 
 
 def test_generate_pseudo_labels(sample_data_dir: Path, tmp_path: Path) -> None:

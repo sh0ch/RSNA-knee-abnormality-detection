@@ -9,6 +9,8 @@ data:
   labeled_only: false
   pseudo_labels_path: outputs/pseudo_labels.csv
   min_confidence: 0.7
+  cache_dir: null
+  warm_cache: false
 
 model:
   name: convnext_tiny_mil

@@ -10,6 +10,10 @@ data:
   # Written by section 3; reused if present. Long-term: Dataset rsna-knee-pseudo-labels.
   pseudo_labels_path: /kaggle/working/outputs/pseudo_labels.csv
   min_confidence: 0.7
+  # Packed uint8 volumes (~14 GiB). Section 5a writes here; upload as
+  # simonhochwebde/rsna-knee-volume-cache-p1 … -p4 (internet ON).
+  cache_dir: /kaggle/working/volume_cache
+  warm_cache: false
 
 model:
   name: convnext_tiny_mil

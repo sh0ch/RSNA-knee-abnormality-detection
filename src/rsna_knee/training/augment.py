@@ -2,8 +2,31 @@
 
 from __future__ import annotations
 
+import math
+
 import torch
-from torchvision.transforms import functional as TF
+import torch.nn.functional as F
+
+
+def _rotate_nchw(images: torch.Tensor, angle_deg: float) -> torch.Tensor:
+    """Rotate ``[N, C, H, W]`` around the center with one grid_sample."""
+    n = images.size(0)
+    ang = images.new_tensor(math.radians(angle_deg))
+    cos = torch.cos(ang)
+    sin = torch.sin(ang)
+    theta = images.new_zeros(n, 2, 3)
+    theta[:, 0, 0] = cos
+    theta[:, 0, 1] = -sin
+    theta[:, 1, 0] = sin
+    theta[:, 1, 1] = cos
+    grid = F.affine_grid(theta, images.size(), align_corners=False)
+    return F.grid_sample(
+        images,
+        grid,
+        align_corners=False,
+        padding_mode="zeros",
+        mode="bilinear",
+    )
 
 
 def augment_study_batch(
@@ -24,20 +47,16 @@ def augment_study_batch(
     out = images.clone()
     batch = out.shape[0]
     for b in range(batch):
-        study = out[b]  # [S, 3, H, W]
-        if torch.rand(1).item() < hflip_prob:
+        study = out[b]
+        if torch.rand(1, device=images.device).item() < hflip_prob:
             study = torch.flip(study, dims=[-1])
 
-        angle = (torch.rand(1).item() * 2 - 1) * rotate_deg
+        angle = (torch.rand(1, device=images.device).item() * 2 - 1) * rotate_deg
         if abs(angle) > 0.5:
-            # Rotate each slice the same amount.
-            rotated = []
-            for s in range(study.shape[0]):
-                rotated.append(TF.rotate(study[s], angle=angle, fill=0.0))
-            study = torch.stack(rotated, dim=0)
+            study = _rotate_nchw(study, angle)
 
         if contrast_jitter > 0:
-            factor = 1.0 + (torch.rand(1).item() * 2 - 1) * contrast_jitter
+            factor = 1.0 + (torch.rand(1, device=images.device).item() * 2 - 1) * contrast_jitter
             mean = study.mean(dim=(-2, -1), keepdim=True)
             study = (study - mean) * factor + mean
             study = study.clamp(0.0, 1.0)

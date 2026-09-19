@@ -130,3 +130,20 @@ def test_series_csv(data_root: Path | str | None = None) -> Path:
 
 def sample_submission_csv(data_root: Path | str | None = None) -> Path:
     return csv_path(SAMPLE_SUBMISSION_CSV, data_root)
+
+
+def default_volume_cache_dir() -> Path | None:
+    """Ephemeral uint8 volume cache (Phase 2 streaming). ``None`` means disabled."""
+    env = os.environ.get("RSNA_VOLUME_CACHE")
+    if env:
+        return Path(env)
+    if not is_kaggle_kernel():
+        return None
+    for candidate in (
+        Path("/tmp/rsna_volume_cache"),
+        Path("/kaggle/tmp/rsna_volume_cache"),
+        Path("/kaggle/working/volume_cache"),
+    ):
+        if candidate.parent.is_dir():
+            return candidate
+    return None

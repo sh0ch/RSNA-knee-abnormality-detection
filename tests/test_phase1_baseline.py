@@ -128,6 +128,166 @@ def test_knee_study_dataset_shapes(sample_data_dir: Path) -> None:
     assert item["mask"].shape == (12,)
 
 
+def test_knee_study_dataset_disk_cache(sample_data_dir: Path, tmp_path: Path) -> None:
+    from rsna_knee.data import KneeStudyDataset, warm_volume_cache
+
+    cache_dir = tmp_path / "vol_cache"
+    ds = KneeStudyDataset(
+        sample_data_dir,
+        split="train",
+        labeled_only=True,
+        volume_shape=(8, 32, 32),
+        max_series=2,
+        cache=False,
+        cache_dir=cache_dir,
+    )
+    first = ds[0]["image"].copy()
+    npy_files = list(ds.cache_dir.glob("*.npy"))
+    assert npy_files
+    packed = np.load(npy_files[0])
+    assert packed.dtype == np.uint8
+    assert packed.shape == (2, 8, 32, 32)
+
+    warm_volume_cache(ds, max_workers=2)
+    second = ds[0]["image"]
+    np.testing.assert_allclose(first, second, atol=1 / 255)
+
+
+def test_prepare_disk_volume_cache(sample_data_dir: Path, tmp_path: Path) -> None:
+    from rsna_knee.data import prepare_disk_volume_cache
+
+    ds = prepare_disk_volume_cache(
+        sample_data_dir,
+        tmp_path / "stage",
+        labeled_only=True,
+        volume_shape=(8, 32, 32),
+        max_series=2,
+        max_workers=2,
+    )
+    npy_files = list(ds.cache_dir.glob("*.npy"))
+    assert len(npy_files) == len(ds)
+
+
+def test_volume_cache_extra_read_dirs(sample_data_dir: Path, tmp_path: Path) -> None:
+    from rsna_knee.data import KneeStudyDataset
+
+    writer = KneeStudyDataset(
+        sample_data_dir,
+        split="train",
+        labeled_only=True,
+        volume_shape=(8, 32, 32),
+        max_series=2,
+        cache=False,
+        cache_dir=tmp_path / "write",
+    )
+    uid = writer.study_ids[0]
+    _ = writer[0]
+    src = writer._find_cached_npy(uid)
+    assert src is not None
+    mount = tmp_path / "mount"
+    mount.mkdir()
+    (mount / src.name).write_bytes(src.read_bytes())
+
+    reader = KneeStudyDataset(
+        sample_data_dir,
+        split="train",
+        labeled_only=True,
+        volume_shape=(8, 32, 32),
+        max_series=2,
+        cache=False,
+        cache_dir=tmp_path / "empty_write",
+    )
+    reader.enable_disk_cache(tmp_path / "empty_write", extra_read_dirs=[mount])
+    found = reader._find_cached_npy(uid)
+    assert found is not None
+    assert found.parent == mount
+
+
+def test_discover_volume_cache_datasets_mount(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from rsna_knee.data import volume_cache as vc
+
+    monkeypatch.setattr(vc, "is_kaggle_kernel", lambda: True)
+    monkeypatch.setattr(vc, "_kaggle_input_root", lambda: tmp_path / "input")
+    shaped = (
+        tmp_path
+        / "input"
+        / "datasets"
+        / "simonhochwebde"
+        / "rsna-knee-volume-cache"
+        / "d16_h256_w256_s3"
+    )
+    shaped.mkdir(parents=True)
+    (shaped / "abc.npy").write_bytes(b"x")
+    dirs = vc.discover_volume_cache_read_dirs("d16_h256_w256_s3")
+    assert shaped in dirs
+    assert "abc" in vc.cached_npy_stems(dirs)
+
+
+def test_discover_volume_cache_part_mount(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from rsna_knee.data import volume_cache as vc
+
+    monkeypatch.setattr(vc, "is_kaggle_kernel", lambda: True)
+    monkeypatch.setattr(vc, "_kaggle_input_root", lambda: tmp_path / "input")
+    shaped = (
+        tmp_path
+        / "input"
+        / "datasets"
+        / "simonhochwebde"
+        / "rsna-knee-volume-cache-p2"
+        / "d16_h256_w256_s3"
+    )
+    shaped.mkdir(parents=True)
+    (shaped / "uid.npy").write_bytes(b"x")
+    dirs = vc.discover_volume_cache_read_dirs("d16_h256_w256_s3")
+    assert shaped in dirs
+    assert "uid" in vc.cached_npy_stems(dirs)
+
+
+def test_shard_npy_files_three_parts(tmp_path: Path) -> None:
+    from rsna_knee.data import volume_cache as vc
+
+    folder = tmp_path / "npy"
+    folder.mkdir()
+    for i in range(10):
+        (folder / f"{i:02d}.npy").write_bytes(b"x")
+    shards = vc.shard_npy_files(folder, 3)
+    assert [len(s) for s in shards] == [4, 3, 3]
+    assert {p.name for part in shards for p in part} == {f"{i:02d}.npy" for i in range(10)}
+    staged = vc.stage_volume_cache_part(
+        folder, 2, n_parts=3, stage_root=tmp_path / "stage"
+    )
+    assert len(list(staged.glob("*.npy"))) == 3
+
+
+def test_kaggle_argv_uses_cli_binary(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from rsna_knee.data import volume_cache as vc
+
+    fake = tmp_path / "kaggle"
+    fake.write_text("", encoding="utf-8")
+    monkeypatch.setattr(vc.shutil, "which", lambda name: str(fake) if name == "kaggle" else None)
+    assert vc.kaggle_argv() == [str(fake)]
+
+
+def test_ordered_dicom_paths_cached(sample_data_dir: Path) -> None:
+    from rsna_knee.data import StudyIndex
+    from rsna_knee.data.dicom_io import ordered_dicom_paths
+
+    index = StudyIndex(sample_data_dir)
+    study_uid = index.iter_studies()[0]
+    series_uid = index.get_series_for_study(study_uid).iloc[0]["SeriesInstanceUID"]
+    path = sample_data_dir / "train_series" / study_uid / series_uid
+    first = ordered_dicom_paths(path)
+    second = ordered_dicom_paths(path)
+    assert first is second
+    assert first
+
+
 def test_model_forward_random_init() -> None:
     torch = pytest.importorskip("torch")
     pytest.importorskip("torchvision")

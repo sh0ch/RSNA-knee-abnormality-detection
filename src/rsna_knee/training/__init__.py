@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 from typing import Any
 
 from rsna_knee.training.loss import compute_pos_weight, masked_bce_with_logits
@@ -18,18 +19,30 @@ __all__ = [
 ]
 
 
-def run_kfold_training(*args: Any, **kwargs: Any) -> Any:
+def _call_kfold(*args: Any, **kwargs: Any) -> Any:
+    """Forward to ``loop.run_kfold_training``, dropping kwargs a stale copy rejects."""
     from rsna_knee.training.loop import run_kfold_training as _fn
 
+    try:
+        params = inspect.signature(_fn).parameters
+    except (TypeError, ValueError):
+        return _fn(*args, **kwargs)
+    if any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values()):
+        return _fn(*args, **kwargs)
+    dropped = [key for key in kwargs if key not in params]
+    for key in dropped:
+        kwargs.pop(key)
+    if dropped:
+        print(f"Dropped stale-loop kwargs: {dropped}", flush=True)
     return _fn(*args, **kwargs)
 
 
-def run_phase2_training(*args: Any, **kwargs: Any) -> Any:
-    from rsna_knee.training.loop import run_kfold_training as _kfold
-    from rsna_knee.training import loop as _loop
+def run_kfold_training(*args: Any, **kwargs: Any) -> Any:
+    return _call_kfold(*args, **kwargs)
 
-    fn = getattr(_loop, "run_phase2_training", _kfold)
-    return fn(*args, **kwargs)
+
+def run_phase2_training(*args: Any, **kwargs: Any) -> Any:
+    return _call_kfold(*args, **kwargs)
 
 
 def predict_test_ensemble(*args: Any, **kwargs: Any) -> Any:

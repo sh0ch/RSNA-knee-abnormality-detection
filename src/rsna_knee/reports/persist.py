@@ -13,7 +13,37 @@ from rsna_knee.utils.paths import is_kaggle_kernel, project_root
 
 PSEUDO_FILENAMES: tuple[str, ...] = ("pseudo_labels.csv", "pseudo_labels.parquet")
 DEFAULT_DATASET_SLUG = "simonhochwebde/rsna-knee-pseudo-labels"
-_KAGGLE_MOUNTS: tuple[str, ...] = ("rsna-knee-pseudo-labels",)
+_KAGGLE_MOUNT_NAME = "rsna-knee-pseudo-labels"
+
+
+def _kaggle_input_root() -> Path:
+    return Path("/kaggle/input")
+
+
+def _kaggle_pseudo_dirs(root: Path) -> list[Path]:
+    """Dataset mounts: short name and ``datasets/<owner>/<slug>``."""
+    dirs: list[Path] = []
+    seen: set[str] = set()
+
+    def _add(path: Path) -> None:
+        key = str(path)
+        if key in seen or not path.is_dir():
+            return
+        seen.add(key)
+        dirs.append(path)
+
+    _add(root / _KAGGLE_MOUNT_NAME)
+    owner, _, slug = DEFAULT_DATASET_SLUG.partition("/")
+    _add(root / "datasets" / owner / slug)
+    datasets = root / "datasets"
+    if datasets.is_dir():
+        try:
+            owners = list(datasets.iterdir())
+        except OSError:
+            owners = []
+        for owner_dir in owners:
+            _add(owner_dir / _KAGGLE_MOUNT_NAME)
+    return dirs
 
 
 def resolve_pseudo_labels_path(preferred: Path | str | None = None) -> Path | None:
@@ -21,7 +51,9 @@ def resolve_pseudo_labels_path(preferred: Path | str | None = None) -> Path | No
     Locate an existing pseudo-label artifact.
 
     Order: explicit path → ``/kaggle/working/outputs/`` → attached Dataset
-    ``rsna-knee-pseudo-labels`` → local ``outputs/``.
+    ``rsna-knee-pseudo-labels`` (including
+    ``/kaggle/input/datasets/<owner>/rsna-knee-pseudo-labels``) → local
+    ``outputs/``.
     """
     candidates: list[Path] = []
     if preferred is not None:
@@ -29,20 +61,14 @@ def resolve_pseudo_labels_path(preferred: Path | str | None = None) -> Path | No
     if is_kaggle_kernel():
         work = Path("/kaggle/working/outputs")
         candidates.extend(work / name for name in PSEUDO_FILENAMES)
-        root = Path("/kaggle/input")
-        for mount_name in _KAGGLE_MOUNTS:
-            mount = root / mount_name
+        for mount in _kaggle_pseudo_dirs(_kaggle_input_root()):
             candidates.extend(mount / name for name in PSEUDO_FILENAMES)
-            if mount.is_dir():
-                try:
-                    children = list(mount.iterdir())
-                except OSError:
-                    children = []
-                for child in children:
-                    if child.is_file() and child.name in PSEUDO_FILENAMES:
-                        candidates.append(child)
-                    elif child.is_dir():
-                        candidates.extend(child / name for name in PSEUDO_FILENAMES)
+            try:
+                for path in mount.rglob("*"):
+                    if path.is_file() and path.name in PSEUDO_FILENAMES:
+                        candidates.append(path)
+            except OSError:
+                continue
     else:
         out = project_root() / "outputs"
         candidates.extend(out / name for name in PSEUDO_FILENAMES)
